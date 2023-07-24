@@ -114,7 +114,10 @@ void FoldersModel::updateFileInfoList()
     Q_EMIT countChanged();
 
     m_updateFutureWatcher.cancel();
-    QFuture<QPair<QFileInfoList, QStringList> > future = QtConcurrent::run(this, &FoldersModel::computeFileInfoList, m_folders);
+    QFuture<QPair<QFileInfoList, QStringList> > future = QtConcurrent::run([=]() -> QPair<QFileInfoList, QStringList> {
+        return this->computeFileInfoList(m_folders);
+    });
+    
     m_updateFutureWatcher.setFuture(future);
 }
 
@@ -136,7 +139,7 @@ QPair<QFileInfoList, QStringList> FoldersModel::computeFileInfoList(QStringList 
             }
         }
     }
-    qSort(filteredFileInfoList.begin(), filteredFileInfoList.end(), newerThan);
+    std::sort(filteredFileInfoList.begin(), filteredFileInfoList.end(), newerThan);
     return QPair<QFileInfoList, QStringList>(filteredFileInfoList, filesToWatch);
 }
 
@@ -160,7 +163,9 @@ void FoldersModel::setFileInfoList(QFileInfoList fileInfoList, const QStringList
     endResetModel();
 
     // Start monitoring files for modifications in a separate thread as it is very time consuming
-    QtConcurrent::run(m_watcher, &QFileSystemWatcher::addPaths, filesToWatch);
+    QtConcurrent::run([=]() {
+        m_watcher->addPaths(filesToWatch);
+    });
 
     m_loading = false;
     Q_EMIT loadingChanged();

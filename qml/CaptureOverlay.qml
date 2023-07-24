@@ -1,5 +1,5 @@
 import QtQuick 2.6
-import QtMultimedia 5.5
+import QtMultimedia
 
 import LunaNext.Common 0.1
 
@@ -7,19 +7,18 @@ import CameraApp 0.1
 import "components"
 
 Item {
-    property Camera camera
+    property CaptureSession captureSession
 
     property QtObject prefs;
     property int captureTimeout: prefs.selfTimerDelay
 
     signal galleryButtonClicked();
+
     function setLastCapturedImage(preview) {
         lastCaptureImage.source = preview
     }
 
     function startCapture() {
-        camera.searchAndLock();
-
         var outputPath =  StorageLocations.picturesLocation;
         var dateAsString = new Date().toLocaleString(Qt.locale(), "yyyy-MM-dd-hh-mm-ss");
         outputPath += "/" + dateAsString;
@@ -28,8 +27,7 @@ Item {
 
         // start he capture !capture the image!
         timeOutTimer.startTimeout(captureTimeout, function() {
-                camera.imageCapture.captureToLocation(outputPath);
-                camera.unlock();
+                captureSession.imageCapture.captureToFile(outputPath);
             }
         );
     }
@@ -47,7 +45,7 @@ Item {
 
         ExclusiveGroup {
             id: exclusiveGroupPhotoVideo
-            readonly property var prefsMapping: [ Camera.CaptureStillImage, Camera.CaptureVideo ]
+            readonly property var prefsMapping: [ PreferencesModel.CaptureStillImage, PreferencesModel.CaptureVideo ]
             currentIndexInGroup: prefsMapping.indexOf(prefs.captureMode);
             onCurrentIndexInGroupChanged: prefs.captureMode = prefsMapping[currentIndexInGroup]
         }
@@ -109,7 +107,7 @@ Item {
 
         ExclusiveGroup {
             id: exclusiveGroupSide
-            readonly property var prefsMapping: [ Camera.FrontFace, Camera.BackFace ]
+            readonly property var prefsMapping: [ CameraDevice.FrontFace, CameraDevice.BackFace ]
             currentIndexInGroup: prefsMapping.indexOf(prefs.position);
             onCurrentIndexInGroupChanged: prefs.position = prefsMapping[currentIndexInGroup]
         }

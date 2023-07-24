@@ -38,10 +38,7 @@ add_definitions(-DCAMERA_OUTPUT_DIR="${CAMERA_OUTPUT_DIR}")
 # Standard install paths. Needs to be set before finding packages.
 include(GNUInstallDirs)
 
-find_package(Qt6 COMPONENTS Qml Quick Multimedia Gui)
-if (NOT Qt6_FOUND)
-    find_package(Qt5 5.15 REQUIRED COMPONENTS Qml Quick Multimedia Gui)
-endif()
+find_package(Qt6 REQUIRED COMPONENTS Qml Quick Multimedia Gui ShaderTools)
 
 set(APP_DATA appinfo.json icon.png icon-256x256.png)
 set(PLUGIN_DIR ${APP_DIR}/CameraApp)
@@ -55,5 +52,10 @@ install(DIRECTORY qml DESTINATION ${APP_DIR})
 # make non compiled files visible in qtcreator
 file(GLOB_RECURSE NON_COMPILED_FILES *.qml *.js *.svg *.png *.json *.sci qmldir)
 add_custom_target(NON_COMPILED_TARGET ALL SOURCES ${NON_COMPILED_FILES})
+
+qt6_add_shaders(org.webosports.app.camera "camera_shaders"
+     FILES
+         "qml/components/cornershader.frag"
+)
 
 add_subdirectory(CameraApp)

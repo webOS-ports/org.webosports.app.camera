@@ -105,6 +105,10 @@ void StorageLocations::updateRemovableStorageInfo()
 {
     QString removableStorageLocation;
     QString mediaRoot("/media/" + qgetenv("USER"));
+
+    QDir mediaRootDir(mediaRoot);
+    if (!mediaRootDir.exists()) return; // no need to get further, it's bound to fail...
+
     // FIXME: calling QStorageInfo::mountedVolumes() is very slow (80ms on krillin)
     Q_FOREACH(QStorageInfo volume, QStorageInfo::mountedVolumes()) {
          if (volume.rootPath().startsWith(mediaRoot) &&

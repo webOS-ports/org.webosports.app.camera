@@ -1,5 +1,5 @@
 import QtQuick 2.6
-import QtMultimedia 5.5
+import QtMultimedia
 
 import LunaNext.Common 0.1
 
@@ -14,29 +14,77 @@ Item {
     signal galleryButtonClicked();
 
     property PreferencesModel prefs;
-    property alias cameraItem: camera
+    property alias captureSessionItem: captureSession
 
-    Camera {
-        id: camera
+    MediaDevices {
+        id: mediaDevices
+    }
 
-        captureMode: prefs.captureMode
-        position: prefs.position
+    CaptureSession {
+        id: captureSession
+        camera: Camera {
+            id: camera
 
-        flash {
-            mode: camera.captureMode === Camera.CaptureStillImage ? prefs.flashMode :
-                     camera.captureMode === Camera.CaptureVideo ? prefs.videoFlashMode :
-                        CameraFlash.FlashOff
-        }
+            cameraDevice: mediaDevices.defaultVideoInput
+            cameraFormat: cameraDevice.videoFormats[0]
 
-        focus.focusMode: Camera.FocusContinuous
+            flashMode: camera.captureMode === PreferencesModel.CaptureStillImage ? prefs.flashMode :
+                       camera.captureMode === PreferencesModel.CaptureVideo ? prefs.videoFlashMode :
+                            Camera.FlashOff
 
-        Component.onCompleted: {
-            updateResolutionOptions();
-        }
+            focusMode: Camera.FocusModeAuto
+            whiteBalanceMode: Camera.WhiteBalanceAuto
+            exposureMode: Camera.ExposureAuto
+
+            property AdvancedCameraSettings advanced: AdvancedCameraSettings {
+                captureSession: captureSession
+                hdrEnabled: prefs.hdrEnabled
+                encodingQuality: prefs.encodingQuality
+                /*
+                onVideoSupportedResolutionsChanged: prefs.updateVideoResolutionOptions(camera.advanced.videoSupportedResolutions);
+                onFittingResolutionChanged: prefs.updatePhotoResolutionOptions(camera.advanced.maximumResolution, camera.advanced.fittingResolution);
+                onMaximumResolutionChanged: prefs.updatePhotoResolutionOptions(camera.advanced.maximumResolution, camera.advanced.fittingResolution);
+                */
+            }
+
+            function updateResolutionOptions() {
+                prefs.updateVideoResolutionOptions(camera.advanced.videoSupportedResolutions);
+                prefs.updatePhotoResolutionOptions(camera.advanced.maximumResolution, camera.advanced.fittingResolution);
+                // FIXME: see workaround setting camera.viewfinder.resolution above
+                camera.cameraFormat.resolution = camera.advanced.resolution;
+            }
 
 
-        imageCapture {
-            resolution: prefs.photoResolutionOptionsModel.getAsSize(prefs.photoResolutionIndex)
+            Component.onCompleted: {
+                //updateResolutionOptions();
+
+                console.log("cameraDevice: " + JSON.stringify(camera.cameraDevice));
+                console.log("camera format: " + JSON.stringify(camera.cameraFormat));
+                start();
+            }
+
+            onErrorChanged: {
+                if(camera.error === Camera.CameraError) {
+                    console.warn("Camera ERROR: " + camera.errorString);
+                }
+            }
+
+            /*
+              // TODO
+            captureMode: prefs.captureMode
+            position: prefs.position
+
+            imageProcessing {
+                colorFilter: CameraImageProcessing.ColorFilterGrayscale
+                contrast: 0.66
+                saturation: -0.5
+            }
+            */
+       }
+        imageCapture: ImageCapture {
+            id: imageCapture
+
+            // resolution: prefs.photoResolutionOptionsModel.getAsSize(prefs.photoResolutionIndex)
 
             onResolutionChanged: {
                 // FIXME: this is a necessary workaround because:
@@ -50,67 +98,37 @@ Item {
                 camera.viewfinder.resolution = camera.advanced.resolution;
             }
 
-            onImageCaptured: {
-                cameraViewRoot.imageCaptured(preview)
+            onImageCaptured: (requestId, previewImage) => {
+                cameraViewRoot.imageCaptured(previewImage)
             }
-            onImageSaved: {
+            onImageSaved: (requestId, path) => {
                 cameraViewRoot.captureDone(path);
             }
         }
-        videoRecorder {
+
+        recorder: MediaRecorder {
+            id: recorder
+
             outputLocation: StorageLocations.videosLocation;
+
+            /* TODO
             resolution: prefs.videoResolutionOptionsModel.getAsSize(prefs.videoResolutionIndex)
 
             onResolutionChanged: {
                 // FIXME: see workaround setting camera.viewfinder.resolution above
                 camera.viewfinder.resolution = camera.advanced.resolution;
             }
+            */
         }
-
-        imageProcessing {
-            colorFilter: CameraImageProcessing.ColorFilterGrayscale
-            whiteBalanceMode: CameraImageProcessing.WhiteBalanceTungsten
-            contrast: 0.66
-            saturation: -0.5
-        }
-
-        property AdvancedCameraSettings advanced: AdvancedCameraSettings {
-            camera: cameraViewRoot.cameraItem
-            hdrEnabled: prefs.hdrEnabled
-            encodingQuality: prefs.encodingQuality
-
-            onVideoSupportedResolutionsChanged: prefs.updateVideoResolutionOptions(camera.advanced.videoSupportedResolutions);
-            onFittingResolutionChanged: prefs.updatePhotoResolutionOptions(camera.advanced.maximumResolution, camera.advanced.fittingResolution);
-            onMaximumResolutionChanged: prefs.updatePhotoResolutionOptions(camera.advanced.maximumResolution, camera.advanced.fittingResolution);
-        }
-
-        function updateResolutionOptions() {
-            prefs.updateVideoResolutionOptions(camera.advanced.videoSupportedResolutions);
-            prefs.updatePhotoResolutionOptions(camera.advanced.maximumResolution, camera.advanced.fittingResolution);
-            // FIXME: see workaround setting camera.viewfinder.resolution above
-            camera.viewfinder.resolution = camera.advanced.resolution;
-        }
-
-        onDeviceIdChanged: {
-            updateResolutionOptions();
-        }
-
-        onCaptureModeChanged: {
-            // FIXME: see workaround setting camera.viewfinder.resolution above
-            camera.viewfinder.resolution = camera.advanced.resolution;
-        }
-
-        onError: console.warn("Camera ERROR " + errorCode + ": " + errorString);
+        videoOutput: videoOutputView
     }
 
     VideoOutput {
         id: videoOutputView
-        source: camera
         anchors.fill: parent
-        focus: visible
         fillMode: VideoOutput.PreserveAspectCrop
 
-        orientation: camera.position === Camera.BackFace ? -camera.orientation : camera.orientation
+        //orientation: camera.position === Camera.BackFace ? -camera.orientation : camera.orientation
     }
     GridLines {
         anchors.fill: parent

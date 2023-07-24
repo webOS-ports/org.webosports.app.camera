@@ -58,7 +58,7 @@ Item {
             property real lastPressedY: 0
             anchors.fill: parent
             drag.target: parent
-            onPressed: {
+            onPressed: (mouse) => {
                 lastPressedX = mouse.x;
                 lastPressedY = mouse.y;
             }
