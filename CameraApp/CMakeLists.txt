@@ -33,3 +33,7 @@ target_link_libraries(camera-qml
 install(TARGETS camera-qml DESTINATION ${PLUGIN_DIR})
 install(FILES qmldir DESTINATION ${PLUGIN_DIR})
 
+qt6_add_shaders(camera-qml "camera_shaders"
+     FILES
+         "qml/components/cornershader.frag"
+)
