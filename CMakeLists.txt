@@ -53,9 +53,4 @@ install(DIRECTORY qml DESTINATION ${APP_DIR})
 file(GLOB_RECURSE NON_COMPILED_FILES *.qml *.js *.svg *.png *.json *.sci qmldir)
 add_custom_target(NON_COMPILED_TARGET ALL SOURCES ${NON_COMPILED_FILES})
 
-qt6_add_shaders(org.webosports.app.camera "camera_shaders"
-     FILES
-         "qml/components/cornershader.frag"
-)
-
 add_subdirectory(CameraApp)
