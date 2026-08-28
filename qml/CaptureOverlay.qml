@@ -27,7 +27,13 @@ Item {
 
         // start he capture !capture the image!
         timeOutTimer.startTimeout(captureTimeout, function() {
-                captureSession.imageCapture.captureToFile(outputPath);
+                if (DroidCameraFactory.available) {
+                    // Qt's QImageCapture never fires without a QCamera, so
+                    // full-resolution stills go through droidcamsrc directly.
+                    DroidCameraFactory.takePicture(outputPath + ".jpg");
+                } else {
+                    captureSession.imageCapture.captureToFile(outputPath);
+                }
             }
         );
     }

@@ -17,7 +17,11 @@
 #include "droidcamerafactory.h"
 
 #include <QFile>
+#include <QFileInfo>
+#include <QDir>
 #include <QDebug>
+
+#include <gst/gst.h>
 
 #if __has_include(<QtMultimedia/spi/qgstreamervideosource.h>)
 #include <QtMultimedia/spi/qgstreamervideosource.h>
@@ -75,16 +79,94 @@ QObject *DroidCameraFactory::createVideoSource(int cameraDevice)
     // preview (error 0x1: opaque implementation-defined preview format).
     const QString desc = QStringLiteral(
         "droidcamsrc name=droidcam camera-device=%1 "
-        "droidcam.imgsrc ! fakesink async=false "
+        "droidcam.imgsrc ! appsink name=droidimgsink emit-signals=true "
+        "async=false sync=false "
         "droidcam.vidsrc ! fakesink async=false "
         "droidcam.vfsrc ! capsfilter caps=video/x-raw,format=NV21 ! "
         "queue ! videoconvert").arg(cameraDevice);
 
     qInfo() << "DroidCameraFactory: creating gst-droid video source:" << desc;
-    m_videoSource = new QGStreamerVideoSource(desc, this);
+    auto *source = new QGStreamerVideoSource(desc, this);
+    m_videoSource = source;
+
+    // Full-resolution JPEGs from the HAL arrive on the imgsrc appsink when
+    // a capture is triggered; the callback runs on a streaming thread.
+    if (GstElement *bin = source->gstElement()) {
+        GstElement *sink = gst_bin_get_by_name(GST_BIN(bin), "droidimgsink");
+        if (sink) {
+            g_signal_connect(sink, "new-sample",
+                G_CALLBACK(+[](GstElement *appsink, gpointer user) -> GstFlowReturn {
+                    auto *self = static_cast<DroidCameraFactory *>(user);
+                    GstSample *sample = nullptr;
+                    g_signal_emit_by_name(appsink, "pull-sample", &sample);
+                    if (!sample)
+                        return GST_FLOW_OK;
+                    GstBuffer *buffer = gst_sample_get_buffer(sample);
+                    QByteArray data;
+                    GstMapInfo map;
+                    if (buffer && gst_buffer_map(buffer, &map, GST_MAP_READ)) {
+                        data = QByteArray(reinterpret_cast<const char *>(map.data),
+                                          static_cast<int>(map.size));
+                        gst_buffer_unmap(buffer, &map);
+                    }
+                    gst_sample_unref(sample);
+                    if (!data.isEmpty())
+                        QMetaObject::invokeMethod(self, [self, data] {
+                            self->saveImage(data);
+                        }, Qt::QueuedConnection);
+                    return GST_FLOW_OK;
+                }), this);
+            gst_object_unref(sink);
+        }
+    }
+
     return m_videoSource;
 #else
     Q_UNUSED(cameraDevice);
     return nullptr;
 #endif
+}
+
+bool DroidCameraFactory::takePicture(const QString &filePath)
+{
+#ifdef HAVE_QGSTREAMER_VIDEO_SOURCE
+    auto *source = qobject_cast<QGStreamerVideoSource *>(m_videoSource);
+    if (!source || !source->gstElement()) {
+        emit imageCaptureError(QStringLiteral("no active droid camera"));
+        return false;
+    }
+
+    GstElement *cam = gst_bin_get_by_name(GST_BIN(source->gstElement()),
+                                          "droidcam");
+    if (!cam) {
+        emit imageCaptureError(QStringLiteral("droidcamsrc not found"));
+        return false;
+    }
+
+    m_pendingImagePath = filePath;
+    g_signal_emit_by_name(cam, "start-capture");
+    gst_object_unref(cam);
+    return true;
+#else
+    Q_UNUSED(filePath);
+    return false;
+#endif
+}
+
+void DroidCameraFactory::saveImage(const QByteArray &data)
+{
+    const QString path = m_pendingImagePath;
+    m_pendingImagePath.clear();
+    if (path.isEmpty())
+        return;
+
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly) || f.write(data) != data.size()) {
+        emit imageCaptureError(QStringLiteral("cannot write %1").arg(path));
+        return;
+    }
+    f.close();
+    qInfo() << "DroidCameraFactory: saved capture to" << path;
+    emit imageSaved(path);
 }

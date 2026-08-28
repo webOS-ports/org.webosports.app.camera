@@ -19,9 +19,16 @@ Item {
     // On Halium devices the cameras sit behind the Android HAL and are not
     // enumerable through MediaDevices; gst-droid's droidcamsrc is the way in.
     property bool useDroidCamera: DroidCameraFactory.available
-    property int droidCameraDevice: 0
+    // Android convention: device 0 = back camera, 1 = front. The Front/Back
+    // switcher writes prefs.position, so follow it here; the
+    // onDroidCameraDeviceChanged handler below recreates the source.
+    property int droidCameraDevice: prefs && prefs.position === CameraDevice.FrontFace ? 1 : 0
 
     function attachDroidCamera() {
+        // Release the previous camera before opening the other sensor:
+        // some HALs will not run both simultaneously.
+        if (captureSession.nativeVideoSource)
+            captureSession.nativeVideoSource.stop();
         var source = DroidCameraFactory.createVideoSource(droidCameraDevice);
         if (source) {
             captureSession.camera = null;
@@ -33,6 +40,17 @@ Item {
     Component.onCompleted: {
         if (useDroidCamera)
             attachDroidCamera();
+    }
+
+    Connections {
+        target: DroidCameraFactory
+        enabled: cameraViewRoot.useDroidCamera
+        function onImageSaved(path) {
+            cameraViewRoot.captureDone(path);
+        }
+        function onImageCaptureError(message) {
+            console.warn("droid capture failed: " + message);
+        }
     }
 
     onDroidCameraDeviceChanged: {

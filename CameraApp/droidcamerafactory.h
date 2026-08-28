@@ -38,8 +38,20 @@ public:
 
     Q_INVOKABLE QObject *createVideoSource(int cameraDevice);
 
+    /* Full-resolution still capture through droidcamsrc's imgsrc pad -
+     * Qt's own QImageCapture is hardwired to require a QCamera and never
+     * fires on a native video source. */
+    Q_INVOKABLE bool takePicture(const QString &filePath);
+
+signals:
+    void imageSaved(const QString &filePath);
+    void imageCaptureError(const QString &message);
+
 private:
+    void saveImage(const QByteArray &data);
+
     QObject *m_videoSource = nullptr;
+    QString m_pendingImagePath;
 };
 
 #endif // DROIDCAMERAFACTORY_H

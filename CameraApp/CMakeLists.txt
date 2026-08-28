@@ -42,6 +42,12 @@ if(TARGET Qt6::MultimediaPrivate)
     target_link_libraries(camera-qml Qt6::MultimediaPrivate)
 endif()
 
+# DroidCameraFactory drives droidcamsrc's still-capture path directly
+# (appsink + start-capture), which needs the GStreamer C API.
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GSTREAMER REQUIRED IMPORTED_TARGET gstreamer-1.0)
+target_link_libraries(camera-qml PkgConfig::GSTREAMER)
+
 install(TARGETS camera-qml DESTINATION ${PLUGIN_DIR})
 install(FILES qmldir DESTINATION ${PLUGIN_DIR})
 
