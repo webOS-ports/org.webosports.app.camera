@@ -51,6 +51,12 @@ Item {
         function onImageCaptureError(message) {
             console.warn("droid capture failed: " + message);
         }
+        function onVideoSaved(path) {
+            cameraViewRoot.captureDone(path);
+        }
+        function onVideoCaptureError(message) {
+            console.warn("droid recording failed: " + message);
+        }
     }
 
     onDroidCameraDeviceChanged: {
