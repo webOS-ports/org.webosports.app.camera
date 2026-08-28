@@ -1,11 +1,10 @@
-import QtQuick 2.9
-import QtQuick.Window 2.2
-
-import LunaNext.Common 0.1
+import QtQuick
+import QtQuick.Controls
+import Eos.Window 0.1
 
 import "components"
 
-Window {
+WebOSWindow {
     visible: true
 
     width: 600
@@ -33,28 +32,34 @@ Window {
 
         prefs: preferences
 
-        onImageCaptured: captureOverlayItem.setLastCapturedImage(preview);
-        onCaptureDone: capturedFilesModel.addFileToGallery(filepath);
+        //onImageCaptured: (preview) => { captureOverlayItem.setLastCapturedImage(preview); }
+        onCaptureDone: (filepath) => {
+                           captureOverlayItem.setLastCapturedImage(filepath);
+                           capturedFilesModel.addFileToGallery(filepath);
+                       }
     }
 
-    CaptureOverlay {
-        id: captureOverlayItem
+    SwipeView {
+        id: switcherListView
+
+        currentIndex: 0
 
         width: parent.width
         height: parent.height
 
-        camera: cameraViewItem.cameraItem
-        prefs: preferences
+        CaptureOverlay {
+            id: captureOverlayItem
 
-        onGalleryButtonClicked: switcherListView.currentIndex = 2
-    }
+            captureSession: cameraViewItem.captureSessionItem
+            prefs: preferences
 
-    PreferencesOverlay {
-        id: preferencesOverlay
+    //        onGalleryButtonClicked: switcherListView.currentIndex = 2
+        }
 
-        width: parent.width
-        height: parent.height
+        PreferencesView {
+            id: preferencesOverlay
 
-        prefs: preferences
+            prefs: preferences
+        }
     }
 }

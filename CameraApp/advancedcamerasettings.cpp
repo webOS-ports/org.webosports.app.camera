@@ -20,212 +20,65 @@
 #include "advancedcamerasettings.h"
 
 #include <QDebug>
-#include <QtMultimedia/QCamera>
-#include <QtMultimedia/QCameraControl>
-#include <QtMultimedia/QMediaService>
-#include <QtMultimedia/QVideoDeviceSelectorControl>
-#include <QtMultimedia/QCameraFlashControl>
-#include <QtMultimedia/QCameraExposureControl>
 #include <QGuiApplication>
 #include <QScreen>
 
+#include <QCamera>
+#include <QCameraDevice>
+#include <QImageCapture>
+#include <QMediaRecorder>
+
 #include <cmath>
 
+#define SUPPORT_HDR_LUNEOS 0
+
+#if SUPPORT_HDR_LUNEOS
 // Definition of this enum value is duplicated in qtubuntu-camera
-static const QCameraExposure::ExposureMode ExposureHdr = static_cast<QCameraExposure::ExposureMode>(QCameraExposure::ExposureModeVendor + 1);
+static const QCamera::ExposureMode ExposureHdr = static_cast<QCamera::ExposureMode>(QCamera::ExposureBarcode + 1);
+#endif
 
 AdvancedCameraSettings::AdvancedCameraSettings(QObject *parent) :
     QObject(parent),
-    m_cameraObject(0),
-    m_camera(0),
-    m_deviceSelector(0),
-    m_viewFinderControl(0),
-    m_cameraFlashControl(0),
-    m_cameraExposureControl(0),
-    m_imageEncoderControl(0),
-    m_videoEncoderControl(0),
-    m_cameraInfoControl(0),
+    m_captureSession(nullptr),
     m_hdrEnabled(false)
 {
 }
 
-QCamera* AdvancedCameraSettings::cameraFromCameraObject(QObject* cameraObject) const
+QMediaCaptureSession* AdvancedCameraSettings::captureSession() const
 {
-    QVariant cameraVariant = cameraObject->property("mediaObject");
-    if (!cameraVariant.isValid()) {
-        qWarning() << "No valid mediaObject";
-        return 0;
-    }
-
-    QCamera *camera = qvariant_cast<QCamera*>(cameraVariant);
-    if (camera == 0) {
-        qWarning() << "No valid camera passed";
-        return 0;
-    }
-
-    return camera;
+    return m_captureSession.get();
 }
 
-QMediaControl* AdvancedCameraSettings::mediaControlFromCamera(QCamera *camera, const char* iid) const
+void AdvancedCameraSettings::setCaptureSession(QMediaCaptureSession *captureSession)
 {
-    if (camera == 0) {
-        return 0;
-    }
+    if (captureSession != m_captureSession.get()) {
+        m_captureSession.reset(captureSession);
 
-    QMediaService *service = camera->service();
-    if (service == 0) {
-        qWarning() << "Camera has no Mediaservice";
-        return 0;
-    }
-
-    QMediaControl *control = service->requestControl(iid);
-    if (control == 0) {
-        qWarning() << "No media control support for" << iid;
-        return 0;
-    }
-
-    return control;
-}
-
-QVideoDeviceSelectorControl* AdvancedCameraSettings::selectorFromCamera(QCamera *camera) const
-{
-    QMediaControl *control = mediaControlFromCamera(camera, QVideoDeviceSelectorControl_iid);
-    if (control == 0) {
-        return 0;
-    }
-
-    QVideoDeviceSelectorControl *selector = qobject_cast<QVideoDeviceSelectorControl*>(control);
-    if (selector == 0) {
-        qWarning() << "No video device selector support";
-        return 0;
-    }
-
-    return selector;
-}
-
-QCameraViewfinderSettingsControl* AdvancedCameraSettings::viewfinderFromCamera(QCamera *camera) const
-{
-    QMediaControl *control = mediaControlFromCamera(camera, QCameraViewfinderSettingsControl_iid);
-    if (control == 0) {
-        return 0;
-    }
-
-    QCameraViewfinderSettingsControl *selector = qobject_cast<QCameraViewfinderSettingsControl*>(control);
-    if (selector == 0) {
-        qWarning() << "No viewfinder settings support";
-        return 0;
-    }
-
-    return selector;
-}
-
-QCameraControl *AdvancedCameraSettings::camcontrolFromCamera(QCamera *camera) const
-{
-    QMediaControl *control = mediaControlFromCamera(camera, QCameraControl_iid);
-    if (control == 0) {
-        return 0;
-    }
-
-    QCameraControl *camControl = qobject_cast<QCameraControl*>(control);
-    if (camControl == 0) {
-        qWarning() << "No camera control support";
-        return 0;
-    }
-
-    return camControl;
-}
-
-QCameraFlashControl *AdvancedCameraSettings::flashControlFromCamera(QCamera *camera) const
-{
-    QMediaControl *control = mediaControlFromCamera(camera, QCameraFlashControl_iid);
-    QCameraFlashControl *flashControl = qobject_cast<QCameraFlashControl*>(control);
-
-    if (flashControl == 0) {
-        qWarning() << "No flash control support";
-    }
-
-    return flashControl;
-}
-
-QCameraExposureControl* AdvancedCameraSettings::exposureControlFromCamera(QCamera *camera) const
-{
-    QMediaControl *control = mediaControlFromCamera(camera, QCameraExposureControl_iid);
-    QCameraExposureControl *exposureControl = qobject_cast<QCameraExposureControl*>(control);
-
-    if (exposureControl == 0) {
-        qWarning() << "No exposure control support";
-    }
-
-    return exposureControl;
-}
-
-QImageEncoderControl* AdvancedCameraSettings::imageEncoderControlFromCamera(QCamera *camera) const
-{
-    QMediaControl *control = mediaControlFromCamera(camera, QImageEncoderControl_iid);
-    QImageEncoderControl *imageEncoderControl = qobject_cast<QImageEncoderControl*>(control);
-
-    if (imageEncoderControl == 0) {
-        qWarning() << "No image encoder control support";
-    }
-
-    return imageEncoderControl;
-}
-
-QVideoEncoderSettingsControl* AdvancedCameraSettings::videoEncoderControlFromCamera(QCamera *camera) const
-{
-    QMediaControl *control = mediaControlFromCamera(camera, QVideoEncoderSettingsControl_iid);
-    QVideoEncoderSettingsControl *videoEncoderControl = qobject_cast<QVideoEncoderSettingsControl*>(control);
-
-    if (videoEncoderControl == 0) {
-        qWarning() << "No video encoder settings control support";
-    }
-
-    return videoEncoderControl;
-}
-
-QCameraInfoControl* AdvancedCameraSettings::cameraInfoControlFromCamera(QCamera *camera) const
-{
-    QMediaControl *control = mediaControlFromCamera(camera, QCameraInfoControl_iid);
-    QCameraInfoControl *infoControl = qobject_cast<QCameraInfoControl*>(control);
-
-    if (infoControl == 0) {
-        qWarning() << "No info control support";
-    }
-
-    return infoControl;
-}
-
-QObject* AdvancedCameraSettings::camera() const
-{
-    return m_cameraObject;
-}
-
-void AdvancedCameraSettings::setCamera(QObject *cameraObject)
-{
-    if (cameraObject != m_cameraObject) {
-        m_cameraObject = cameraObject;
-
-        if (m_camera != 0) {
-            this->disconnect(m_camera, SIGNAL(stateChanged(QCamera::State)));
-        }
-        QCamera* camera = cameraFromCameraObject(cameraObject);
-        m_camera = camera;
-        if (m_camera != 0) {
-            this->connect(m_camera, SIGNAL(stateChanged(QCamera::State)),
-                          SLOT(onCameraStateChanged()));
-            onCameraStateChanged();
-
-            QVideoDeviceSelectorControl* selector = selectorFromCamera(m_camera);
-            m_deviceSelector = selector;
-            connect(m_deviceSelector, SIGNAL(selectedDeviceChanged(int)),
-                    this, SLOT(onSelectedDeviceChanged(int)));
+        if (camera_()) {
+            selectedDeviceChanged(0);
+            cameraStateChanged();
         }
 
-        Q_EMIT cameraChanged();
+        Q_EMIT captureSessionChanged();
     }
 }
 
-void AdvancedCameraSettings::onSelectedDeviceChanged(int index)
+inline QCamera* AdvancedCameraSettings::camera_() const
+{
+    return m_captureSession ? m_captureSession->camera() : nullptr;
+}
+
+inline QImageCapture* AdvancedCameraSettings::imageCapture_() const
+{
+    return m_captureSession ? m_captureSession->imageCapture() : nullptr;
+}
+
+inline QMediaRecorder* AdvancedCameraSettings::mediaRecorder_() const
+{
+    return m_captureSession ? m_captureSession->recorder() : nullptr;
+}
+
+void AdvancedCameraSettings::selectedDeviceChanged(int index)
 {
     Q_UNUSED(index);
 
@@ -240,35 +93,24 @@ void AdvancedCameraSettings::onSelectedDeviceChanged(int index)
 
 void AdvancedCameraSettings::readCapabilities()
 {
-    m_viewFinderControl = viewfinderFromCamera(m_camera);
-    m_cameraControl = camcontrolFromCamera(m_camera);
-    if (m_cameraControl) {
-        QObject::connect(m_cameraControl,
-                         SIGNAL(captureModeChanged(QCamera::CaptureModes)),
-                         this, SIGNAL(resolutionChanged()));
-        QObject::connect(m_cameraControl,
-                         SIGNAL(captureModeChanged(QCamera::CaptureModes)),
-                         this, SIGNAL(maximumResolutionChanged()));
-        QObject::connect(m_cameraControl,
-                         SIGNAL(captureModeChanged(QCamera::CaptureModes)),
-                         this, SIGNAL(fittingResolutionChanged()));
+    QCamera *camera = camera_();
+    if (camera) {
+        QObject::connect(camera, &QCamera::cameraFormatChanged, this, &AdvancedCameraSettings::resolutionChanged);
+        QObject::connect(camera, &QCamera::cameraFormatChanged, this, &AdvancedCameraSettings::maximumResolutionChanged);
+        QObject::connect(camera, &QCamera::cameraFormatChanged, this, &AdvancedCameraSettings::fittingResolutionChanged);
+        QObject::connect(camera, &QCamera::activeChanged, this, &AdvancedCameraSettings::cameraStateChanged);
+
+        QObject::connect(camera, &QCamera::exposureModeChanged, this, &AdvancedCameraSettings::exposureValueChanged);
     }
 
-    m_cameraFlashControl = flashControlFromCamera(m_camera);
-    m_cameraExposureControl = exposureControlFromCamera(m_camera);
-
-    if (m_cameraExposureControl) {
-        QVariant exposureMode = m_hdrEnabled ? QVariant::fromValue(ExposureHdr)
-                                             : QVariant::fromValue(QCameraExposure::ExposureAuto);
-        m_cameraExposureControl->setValue(QCameraExposureControl::ExposureMode, exposureMode);
-        QObject::connect(m_cameraExposureControl,
-                         SIGNAL(actualValueChanged(int)),
-                         this, SLOT(onExposureValueChanged(int)));
+#if SUPPORT_HDR_LUNEOS
+    if (m_camera) {
+         QCamera::ExposureMode exposureMode = m_hdrEnabled ? ExposureHdr : QCamera::ExposureAuto;
+        m_camera->setExposureMode(exposureMode);
+        QObject::connect(m_camera.get(), &QCamera::exposureModeChanged, this, &AdvancedCameraSettings::exposureValueChanged);
     }
+#endif
 
-    m_imageEncoderControl = imageEncoderControlFromCamera(m_camera);
-    m_videoEncoderControl = videoEncoderControlFromCamera(m_camera);
-    m_cameraInfoControl = cameraInfoControlFromCamera(m_camera);
     m_videoSupportedResolutions.clear();
 
     Q_EMIT resolutionChanged();
@@ -281,20 +123,19 @@ void AdvancedCameraSettings::readCapabilities()
     Q_EMIT videoSupportedResolutionsChanged();
 }
 
-void AdvancedCameraSettings::onCameraStateChanged()
+void AdvancedCameraSettings::cameraStateChanged()
 {
-    if (m_camera->state() == QCamera::LoadedState || m_camera->state() == QCamera::ActiveState) {
+    QCamera *camera = camera_();
+    if (camera && camera->isActive()) {
         readCapabilities();
     }
 }
 
 QSize AdvancedCameraSettings::resolution() const
 {
-    if (m_viewFinderControl != 0) {
-        QVariant result = m_viewFinderControl->viewfinderParameter(QCameraViewfinderSettingsControl::Resolution);
-        if (result.isValid()) {
-            return result.toSize();
-        }
+    QCamera *camera = camera_();
+    if (camera) {
+        return camera->cameraFormat().resolution();
     }
 
     return QSize();
@@ -302,8 +143,9 @@ QSize AdvancedCameraSettings::resolution() const
 
 QSize AdvancedCameraSettings::imageCaptureResolution() const
 {
-    if (m_imageEncoderControl != 0) {
-        return m_imageEncoderControl->imageSettings().resolution();
+    QImageCapture* imageCapture = imageCapture_();
+    if (imageCapture != 0) {
+        return imageCapture->resolution();
     }
 
     return QSize();
@@ -311,8 +153,9 @@ QSize AdvancedCameraSettings::imageCaptureResolution() const
 
 QSize AdvancedCameraSettings::videoRecorderResolution() const
 {
-    if (m_videoEncoderControl != 0) {
-        return m_videoEncoderControl->videoSettings().resolution();
+    QMediaRecorder* recorder = mediaRecorder_();
+    if (recorder) {
+        return recorder->videoResolution();
     }
 
     return QSize();
@@ -320,9 +163,9 @@ QSize AdvancedCameraSettings::videoRecorderResolution() const
 
 QSize AdvancedCameraSettings::maximumResolution() const
 {
-    if (m_imageEncoderControl) {
-        QList<QSize> sizes = m_imageEncoderControl->supportedResolutions(
-                                       m_imageEncoderControl->imageSettings());
+    QCamera *camera = camera_();
+    if (camera) {
+        QList<QSize> sizes = camera->cameraDevice().photoResolutions();
 
         QSize maximumSize;
         long maximumPixels = 0;
@@ -369,9 +212,9 @@ QSize AdvancedCameraSettings::fittingResolution() const
         }
     }
 
-    if (m_imageEncoderControl) {
-        QList<QSize> sizes = m_imageEncoderControl->supportedResolutions(
-                                       m_imageEncoderControl->imageSettings());
+    QCamera *camera = camera_();
+    if (camera) {
+        QList<QSize> sizes = camera->cameraDevice().photoResolutions();
 
         QSize optimalSize;
         long optimalPixels = 0;
@@ -413,18 +256,20 @@ QSize AdvancedCameraSettings::fittingResolution() const
 
 QStringList AdvancedCameraSettings::videoSupportedResolutions()
 {
-    if (m_videoEncoderControl) {
+    QCamera *camera = camera_();
+    if (camera) {
         if (m_videoSupportedResolutions.isEmpty()) {
-            QString currentDeviceName = m_deviceSelector->deviceName(m_deviceSelector->selectedDevice());
-            QCamera::Position cameraPosition = m_cameraInfoControl->cameraPosition(currentDeviceName);
-            QList<QSize> sizes = m_videoEncoderControl->supportedResolutions(
-                                                m_videoEncoderControl->videoSettings());
-            Q_FOREACH(QSize size, sizes) {
+            QList<QCameraFormat> videoFormats = camera->cameraDevice().videoFormats();
+            QCameraDevice::Position cameraPosition = camera->cameraDevice().position();
+
+            for (auto &format: videoFormats) {
+                QSize size = format.resolution();
+
                 // Workaround for bug https://bugs.launchpad.net/ubuntu/+source/libhybris/+bug/1408650
                 // When using the front camera on krillin, using resolution 640x480 does
                 // not work properly and results in stretched videos. Remove it from
                 // the list of supported resolutions.
-                if (cameraPosition == QCamera::FrontFace &&
+                if (cameraPosition == QCameraDevice::FrontFace &&
                     size.width() == 640 && size.height() == 480) {
                     continue;
                 }
@@ -440,10 +285,11 @@ QStringList AdvancedCameraSettings::videoSupportedResolutions()
 
 bool AdvancedCameraSettings::hasFlash() const
 {
-    if (m_cameraFlashControl) {
-        return m_cameraFlashControl->isFlashModeSupported(QCameraExposure::FlashAuto)
-            && m_cameraFlashControl->isFlashModeSupported(QCameraExposure::FlashOff)
-            && m_cameraFlashControl->isFlashModeSupported(QCameraExposure::FlashOn);
+    QCamera *camera = camera_();
+    if (camera) {
+        return camera->isFlashModeSupported(QCamera::FlashAuto)
+            && camera->isFlashModeSupported(QCamera::FlashOff)
+            && camera->isFlashModeSupported(QCamera::FlashOn);
     } else {
         return false;
     }
@@ -451,13 +297,13 @@ bool AdvancedCameraSettings::hasFlash() const
 
 bool AdvancedCameraSettings::hasHdr() const
 {
-    if (m_cameraExposureControl) {
-        bool continuous;
-        if (m_cameraExposureControl->isParameterSupported(QCameraExposureControl::ExposureMode)) {
-            QVariantList range = m_cameraExposureControl->supportedParameterRange(QCameraExposureControl::ExposureMode, &continuous);
-            return range.contains(QVariant::fromValue(ExposureHdr));
+#if SUPPORT_HDR_LUNEOS
+    if (m_camera) {
+        if (m_camera->exposureMode() == ExposureHdr) {
+            return true;
         }
     }
+#endif
 
     return false;
 }
@@ -469,39 +315,43 @@ bool AdvancedCameraSettings::hdrEnabled() const
 
 void AdvancedCameraSettings::setHdrEnabled(bool enabled)
 {
+#if SUPPORT_HDR_LUNEOS
     if (enabled != m_hdrEnabled) {
         m_hdrEnabled = enabled;
-        if (m_cameraExposureControl) {
-            QVariant exposureMode = enabled ? QVariant::fromValue(ExposureHdr)
-                                            : QVariant::fromValue(QCameraExposure::ExposureAuto);
-            m_cameraExposureControl->setValue(QCameraExposureControl::ExposureMode, exposureMode);
+
+        if (m_camera) {
+            QCamera::ExposureMode exposureMode = m_hdrEnabled ? ExposureHdr : QCamera::ExposureAuto;
+            m_camera->setExposureMode(exposureMode);
         } else {
             Q_EMIT hdrEnabledChanged();
         }
     }
+#endif
 }
 
-int AdvancedCameraSettings::encodingQuality() const
+QImageCapture::Quality AdvancedCameraSettings::encodingQuality() const
 {
-    if (m_imageEncoderControl) {
-        return m_imageEncoderControl->imageSettings().quality();
+    QImageCapture* imageCapture = imageCapture_();
+    if (imageCapture) {
+        return imageCapture->quality();
     } else {
-        return QMultimedia::NormalQuality;
+        return QImageCapture::NormalQuality;
     }
 }
 
-void AdvancedCameraSettings::setEncodingQuality(int quality)
+void AdvancedCameraSettings::setEncodingQuality(QImageCapture::Quality quality)
 {
-    if (m_imageEncoderControl) {
-        QImageEncoderSettings settings;
-        settings.setQuality((QMultimedia::EncodingQuality)quality);
-        m_imageEncoderControl->setImageSettings(settings);
+    QImageCapture* imageCapture = imageCapture_();
+    if (imageCapture) {
+        imageCapture->setQuality(quality);
     }
 }
 
-void AdvancedCameraSettings::onExposureValueChanged(int parameter)
+void AdvancedCameraSettings::exposureValueChanged()
 {
-    if (parameter == QCameraExposureControl::ExposureMode) {
+#if SUPPORT_HDR_LUNEOS
+    if (m_camera && m_camera->exposureMode() == ExposureHdr) {
         Q_EMIT hdrEnabledChanged();
     }
+#endif
 }

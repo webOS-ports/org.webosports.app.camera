@@ -28,6 +28,8 @@
 
 class FoldersModel : public QAbstractListModel, public QQmlParserStatus
 {
+    Q_INTERFACES(QQmlParserStatus)
+
     Q_OBJECT
     Q_PROPERTY (QStringList folders READ folders WRITE setFolders NOTIFY foldersChanged)
     Q_PROPERTY (QStringList typeFilters READ typeFilters WRITE setTypeFilters NOTIFY typeFiltersChanged)

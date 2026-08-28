@@ -1,7 +1,6 @@
 import QtQuick 2.0
-import QtMultimedia 5.5
 import QtQml.Models 2.2
-import QtGraphicalEffects 1.0
+import QtMultimedia
 
 import LunaNext.Common 0.1
 
@@ -12,19 +11,13 @@ import "components"
 Item {
     id: root
 
-    // useful shortcuts
-    readonly property real menuInnerRadius: ringMenuProperties.menuAreaWidth/2 - ringMenuProperties.ringWidth
-    readonly property real menuXOffset: ringMenuProperties.menuXOffset
-
-    property real arcScroll: 0
-
     property PreferencesModel prefs;
     property var prefsMapping: ({
         "flashMode": [ Camera.FlashAuto, Camera.FlashOff, Camera.FlashOn ],
         "selfTimerDelay": [ 0, 3, 10, 15 ],
         "position": [ Camera.FrontFace, Camera.BackFace ],
         "gridEnabled": [ false, true ],
-        "captureMode": [ Camera.CaptureStillImage, Camera.CaptureVideo ],
+        "captureMode": [ PreferencesModel.CaptureStillImage, PreferencesModel.CaptureVideo ],
         "photoResolutionIndex": [], // will be filled dynamically
         "videoResolutionIndex": [], // will be filled dynamically
         "effectMode": [ 0, 1, 2, 3 ]
@@ -98,8 +91,8 @@ Item {
     }
 
     Connections {
-        target: prefs.captureMode === Camera.CaptureStillImage ? prefs.photoResolutionOptionsModel : null
-        onModelChanged: {
+        target: prefs.captureMode === PreferencesModel.CaptureMode.CaptureStillImage ? prefs.photoResolutionOptionsModel : null
+        function onModelChanged() {
             var subMenuModel = []
             var nbPhotoResolutions = prefs.photoResolutionOptionsModel.count;
             var prefsMappingQuality = [];
@@ -113,8 +106,8 @@ Item {
         }
     }
     Connections {
-        target: prefs.captureMode === Camera.CaptureVideo ? prefs.videoResolutionOptionsModel : null
-        onModelChanged: {
+        target: prefs.captureMode === PreferencesModel.CaptureMode.CaptureVideo ? prefs.videoResolutionOptionsModel : null
+        function onModelChanged() {
             var subMenuModel = []
             var nbVideoResolutions = prefs.videoResolutionOptionsModel.count;
             var prefsMappingQuality = [];
@@ -128,195 +121,6 @@ Item {
         }
     }
 
-    QtObject {
-        id: ringMenuProperties
-        readonly property real menuAreaHeight: root.height*0.8
-        readonly property real menuAreaWidth: menuAreaHeight
-        readonly property real ringWidth: root.height*1.1 / 6.5
-        readonly property real arcLength: Math.PI/6
-        readonly property real menuXOffset: -(menuAreaWidth/2)*1.3
-    }
-    QtObject {
-        id: ringSubMenuProperties
-        readonly property real menuAreaHeight: ringMenuProperties.menuAreaHeight + 2*root.height/6.5
-        readonly property real menuAreaWidth: menuAreaHeight
-        readonly property real ringWidth: ringMenuProperties.ringWidth * 0.8
-        readonly property real arcLength: Math.PI/16
-        readonly property real menuXOffset: -(ringMenuProperties.menuAreaWidth/2)*1.3 - root.height/6.5
-    }
-
-    // Pre-generate canvas images for the buttons
-    DropShadow {
-        id: mainMenuRadialBg;
-        height: ringMenuProperties.menuAreaHeight
-        width: ringMenuProperties.menuAreaWidth
-        opacity: 0
-
-        horizontalOffset: 0
-        verticalOffset: 0
-        radius: Units.gu(0.5)
-        samples: 6
-        color: "#333"
-
-        source:  MenuPieSlice {
-            height: ringMenuProperties.menuAreaHeight
-            width: ringMenuProperties.menuAreaWidth
-            innerRadius: root.menuInnerRadius
-            arcLength: ringMenuProperties.arcLength*180/Math.PI
-            shadowRadius: Units.gu(0.5)
-            color: Qt.rgba(0.93, 0.93, 0.93, 0.67)
-        }
-    }
-    DropShadow {
-        id: mainMenuRadialSelectedBg;
-        height: ringMenuProperties.menuAreaHeight
-        width: ringMenuProperties.menuAreaWidth
-        opacity: 0
-
-        horizontalOffset: 0
-        verticalOffset: 0
-        radius: Units.gu(0.5)
-        samples: 6
-        color: "#333"
-        source: MenuPieSlice {
-            height: ringMenuProperties.menuAreaHeight
-            width: ringMenuProperties.menuAreaWidth
-            innerRadius: root.menuInnerRadius
-            arcLength: ringMenuProperties.arcLength*180/Math.PI
-            shadowRadius: Units.gu(0.5)
-            color: Qt.rgba(0.42, 0.63, 0.76, 1.0)
-        }
-    }
-    DropShadow {
-        id: subMenuRadialBg;
-        height: ringSubMenuProperties.menuAreaHeight
-        width: ringSubMenuProperties.menuAreaWidth
-        opacity: 0
-
-        horizontalOffset: 0
-        verticalOffset: 0
-        radius: Units.gu(0.5)
-        samples: 6
-        color: "#333"
-        source: MenuPieSlice {
-            height: ringSubMenuProperties.menuAreaHeight
-            width: ringSubMenuProperties.menuAreaWidth
-            innerRadius: root.menuInnerRadius + ringMenuProperties.ringWidth
-            arcLength: ringSubMenuProperties.arcLength*180/Math.PI
-            shadowRadius: Units.gu(0.5)
-            color: Qt.rgba(0.93, 0.93, 0.93, 0.67)
-        }
-    }
-    DropShadow {
-        id: subMenuRadialSelectedBg;
-        height: ringSubMenuProperties.menuAreaHeight
-        width: ringSubMenuProperties.menuAreaWidth
-        opacity: 0
-
-        horizontalOffset: 0
-        verticalOffset: 0
-        radius: Units.gu(0.5)
-        samples: 6
-        color: "#333"
-        source: MenuPieSlice {
-            height: ringSubMenuProperties.menuAreaHeight
-            width: ringSubMenuProperties.menuAreaWidth
-            innerRadius: root.menuInnerRadius + ringMenuProperties.ringWidth
-            arcLength: ringSubMenuProperties.arcLength*180/Math.PI
-            shadowRadius: Units.gu(0.5)
-            color: Qt.rgba(0.42, 0.63, 0.76, 1.0)
-        }
-    }
-
-    Item {
-        id: mainMenuItems
-        anchors.fill: parent
-
-        ExclusiveGroup {
-            id: exclusiveMainMenu
-            currentIndexInGroup: -1
-        }
-        Repeater {
-            anchors.verticalCenter: parent.verticalCenter
-            x: 0
-
-            model: prefsMenuModel
-            delegate: MenuItemRingArc {
-                height: ringMenuProperties.menuAreaHeight
-                width: ringMenuProperties.menuAreaWidth
-                x: ringMenuProperties.menuXOffset
-                y: (root.height-height)/2
-
-                z: 2
-
-                backgroundImage: isSelected ? mainMenuRadialSelectedBg : mainMenuRadialBg
-
-                innerRadius: root.menuInnerRadius
-
-                arcLength: ringMenuProperties.arcLength
-                arcOffset: (index - prefsMenuModel.count/2)*arcLength - arcScroll
-
-                text: model.text
-                menuImageUrl: model.imageUrl !== "" ? Qt.resolvedUrl(model.imageUrl) : ""
-
-                group: exclusiveMainMenu
-                indexInGroup: index
-                interactive: !!model.prefsKey
-
-                onSelected: {
-                    exclusiveSubMenu.prefsKey = model.prefsKey;
-                    subMenuRepeater.model = model.subMenuModel;
-                }
-            }
-        }
-    }
-
-    Item {
-        id: subMenuItems
-
-        visible: !!subMenuRepeater.model
-
-        anchors.fill: parent
-        ExclusiveGroup {
-            id: exclusiveSubMenu
-            property string prefsKey: ""
-            onPrefsKeyChanged: currentIndexInGroup = root.prefsMapping[prefsKey].indexOf(prefs[prefsKey]);
-            currentIndexInGroup: -1
-        }
-        Repeater {
-            id: subMenuRepeater
-            anchors.verticalCenter: parent.verticalCenter
-            x: 0
-
-            delegate: MenuItemRingArc {
-                height: ringSubMenuProperties.menuAreaHeight
-                width: ringSubMenuProperties.menuAreaWidth
-                x: -(root.height*0.8/2)*1.3 - root.height/6.5
-                y: (root.height-height)/2
-
-                z: 2
-
-                backgroundImage: isSelected ? subMenuRadialSelectedBg : subMenuRadialBg
-
-                innerRadius: root.menuInnerRadius + ringMenuProperties.ringWidth;
-
-                arcLength: ringSubMenuProperties.arcLength
-                arcOffset: -arcLength*subMenuRepeater.count/2  + index*arcLength
-
-                text: model.text
-                menuImageUrl: model.imageUrl !== "" ? Qt.resolvedUrl(model.imageUrl) : ""
-
-                group: exclusiveSubMenu
-                indexInGroup: index
-
-                onClicked: {
-                    root.prefs[exclusiveSubMenu.prefsKey] = root.prefsMapping[exclusiveSubMenu.prefsKey][exclusiveSubMenu.currentIndexInGroup]
-                }
-            }
-        }
-    }
-
-/*
     ListView {
         id: subMenuListView
         visible: false
@@ -341,8 +145,8 @@ Item {
                 text: model.text
             }
     }
-*/
-    /*
+
+
     Column {
         width: parent.width
         spacing: Units.gu(0.5)
@@ -356,7 +160,7 @@ Item {
 
             ExclusiveGroup {
                 id: exclusiveGroupSide
-                readonly property var prefsMapping: [ Camera.FrontFace, Camera.BackFace ]
+                readonly property var prefsMapping: [ CameraDevice.FrontFace, CameraDevice.BackFace ]
                 currentIndexInGroup: prefsMapping.indexOf(prefs.position);
                 onCurrentIndexInGroupChanged: prefs.position = prefsMapping[currentIndexInGroup]
             }
@@ -424,7 +228,7 @@ Item {
 
             ExclusiveGroup {
                 id: exclusiveGroupPhotoVideo
-                readonly property var prefsMapping: [ Camera.CaptureStillImage, Camera.CaptureVideo ]
+                readonly property var prefsMapping: [ PreferencesModel.CaptureMode.CaptureStillImage, PreferencesModel.CaptureMode.CaptureVideo ]
                 currentIndexInGroup: prefsMapping.indexOf(prefs.captureMode);
                 onCurrentIndexInGroupChanged: prefs.captureMode = prefsMapping[currentIndexInGroup]
             }
@@ -471,7 +275,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             height: Units.gu(6)
 
-            visible: prefs.captureMode === Camera.CaptureVideo
+            visible: prefs.captureMode === PreferencesModel.CaptureMode.CaptureVideo
 
             ExclusiveGroup {
                 id: exclusiveGroupFlashVideo
@@ -499,7 +303,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             height: Units.gu(6)
 
-            visible: prefs.captureMode === Camera.CaptureStillImage && prefs.photoResolutionOptionsModel.count>0
+            visible: prefs.captureMode === PreferencesModel.CaptureMode.CaptureStillImage && prefs.photoResolutionOptionsModel.count>0
 
             function sizeToMegapixels(size) {
                 var megapixels = (size.width * size.height) / 1000000;
@@ -569,5 +373,4 @@ Item {
             }
         }
     }
-    */
 }

@@ -1,5 +1,5 @@
 import QtQuick 2.6
-import QtMultimedia 5.5
+import QtMultimedia
 
 import "components"
 
@@ -8,8 +8,13 @@ import "components"
 QtObject {
     id: settings
 
-    property int position: Camera.BackFace
-    property int captureMode: Camera.CaptureStillImage
+    enum CaptureMode {
+        CaptureStillImage,
+        CaptureVideo
+    }
+
+    property int position: CameraDevice.BackFace
+    property int captureMode: PreferencesModel.CaptureStillImage
     property int flashMode: Camera.FlashAuto
     property int videoFlashMode: Camera.FlashOff
     property bool gpsEnabled: false
