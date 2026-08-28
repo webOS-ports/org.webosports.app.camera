@@ -61,6 +61,8 @@ signals:
 private:
     void saveImage(const QByteArray &data);
     void finishRecording();
+    bool startHwRecording(struct _GstElement *bin, const QString &filePath);
+    void finishHwRecording();
 
     QObject *m_videoSource = nullptr;
     QString m_pendingImagePath;
@@ -68,6 +70,7 @@ private:
     // opaque GStreamer handles (GstElement/GstPad), kept out of the header
     void *m_recBin = nullptr;
     void *m_recTeePad = nullptr;
+    bool m_hwRecording = false;
     QString m_pendingVideoPath;
 };
 

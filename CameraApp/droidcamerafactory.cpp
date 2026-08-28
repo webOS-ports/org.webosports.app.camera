@@ -92,7 +92,7 @@ QObject *DroidCameraFactory::createVideoSource(int cameraDevice)
         "droidcamsrc name=droidcam camera-device=%1 "
         "droidcam.imgsrc ! appsink name=droidimgsink emit-signals=true "
         "async=false sync=false "
-        "droidcam.vidsrc ! fakesink async=false "
+        "droidcam.vidsrc ! fakesink name=vidsink async=false "
         "droidcam.vfsrc ! capsfilter caps=video/x-raw,format=NV21 ! "
         "tee name=vftee ! queue ! videoconvert").arg(cameraDevice);
 
@@ -197,13 +197,21 @@ bool DroidCameraFactory::startRecording(const QString &filePath)
     }
 
     GstElement *bin = source->gstElement();
+
+    QDir().mkpath(QFileInfo(filePath).absolutePath());
+
+    // Preferred: hardware H264 through droidcamsrc's recorder mode. The
+    // DroidMediaRecorder attaches the encoder to the camera session inside
+    // the Android layer and vidsrc emits encoded frames, independent of
+    // the raw viewfinder (needs the gst-droid raw-preview-recorder patch).
+    if (startHwRecording(bin, filePath))
+        return true;
+
     GstElement *tee = gst_bin_get_by_name(GST_BIN(bin), "vftee");
     if (!tee) {
         emit videoCaptureError(QStringLiteral("viewfinder tee not found"));
         return false;
     }
-
-    QDir().mkpath(QFileInfo(filePath).absolutePath());
 
     // MPEG-4 part 2 in software: the hardware droidvenc only accepts
     // droid-buffer memory from droidcamsrc's video mode, which conflicts
@@ -215,7 +223,8 @@ bool DroidCameraFactory::startRecording(const QString &filePath)
         "video/x-raw,format=I420,width=1344,height=672 ! "
         "avenc_mpeg4 bitrate=8000000 ! mp4mux name=recmux ! "
         "filesink name=recsink async=false location=\"%1\" "
-        "pulsesrc ! audioconvert ! avenc_aac ! queue ! recmux.")
+        "pulsesrc device=source.primary_input ! audioconvert ! "
+        "avenc_aac ! queue ! recmux.")
         .arg(filePath);
     const QString vDesc = QStringLiteral(
         "queue name=recentry max-size-buffers=30 leaky=downstream ! "
@@ -226,13 +235,16 @@ bool DroidCameraFactory::startRecording(const QString &filePath)
         .arg(filePath);
 
     GError *error = nullptr;
-    // Video-only for now: the PulseAudio branch connects but never delivers
-    // samples in the app context, and an audio trak that got EOS without
-    // data makes mp4mux write a corrupt moov (mdhd timescale 0, empty
-    // STSD). Re-enable avDesc once the in-app pulsesrc path is fixed.
-    Q_UNUSED(avDesc);
+    // A/V first; falls back to video-only if the audio chain cannot be
+    // built (e.g. no droid mic source on this device - it needs the
+    // 16-bit input override in /etc/pulse/droid-audio, see the recipe).
     GstElement *rec = gst_parse_bin_from_description(
-        vDesc.toUtf8().constData(), TRUE, &error);
+        avDesc.toUtf8().constData(), TRUE, &error);
+    if (!rec) {
+        g_clear_error(&error);
+        rec = gst_parse_bin_from_description(vDesc.toUtf8().constData(),
+                                             TRUE, &error);
+    }
     if (!rec) {
         qWarning() << "DroidCameraFactory: recording bin failed:"
                    << (error ? error->message : "unknown");
@@ -280,6 +292,21 @@ bool DroidCameraFactory::startRecording(const QString &filePath)
 void DroidCameraFactory::stopRecording()
 {
 #ifdef HAVE_QGSTREAMER_VIDEO_SOURCE
+    if (m_hwRecording) {
+        auto *source = qobject_cast<QGStreamerVideoSource *>(m_videoSource);
+        if (source && source->gstElement()) {
+            GstElement *cam =
+                gst_bin_get_by_name(GST_BIN(source->gstElement()), "droidcam");
+            if (cam) {
+                // droidcamsrc stops the recorder and pushes EOS through
+                // vidsrc; the filesink probe fires finishHwRecording().
+                g_signal_emit_by_name(cam, "stop-capture");
+                gst_object_unref(cam);
+            }
+        }
+        return;
+    }
+
     if (!m_recBin || !m_recTeePad)
         return;
 
@@ -355,6 +382,141 @@ void DroidCameraFactory::finishRecording()
     m_recTeePad = nullptr;
     emit recordingChanged();
     qInfo() << "DroidCameraFactory: saved recording to" << path;
+    emit videoSaved(path);
+#endif
+}
+
+bool DroidCameraFactory::startHwRecording(GstElement *bin,
+                                          const QString &filePath)
+{
+#ifdef HAVE_QGSTREAMER_VIDEO_SOURCE
+    GstElement *cam = gst_bin_get_by_name(GST_BIN(bin), "droidcam");
+    GstElement *vidsink = gst_bin_get_by_name(GST_BIN(bin), "vidsink");
+    if (!cam || !vidsink) {
+        if (cam) gst_object_unref(cam);
+        if (vidsink) gst_object_unref(vidsink);
+        return false;
+    }
+
+    const QString avDesc = QStringLiteral(
+        "h264parse ! mp4mux name=recmux ! "
+        "filesink name=recsink async=false location=\"%1\" "
+        "pulsesrc device=source.primary_input ! audioconvert ! "
+        "avenc_aac ! queue ! recmux.").arg(filePath);
+    const QString vDesc = QStringLiteral(
+        "h264parse ! mp4mux name=recmux ! "
+        "filesink name=recsink async=false location=\"%1\"").arg(filePath);
+
+    GError *error = nullptr;
+    GstElement *rec = gst_parse_bin_from_description(
+        avDesc.toUtf8().constData(), TRUE, &error);
+    if (!rec) {
+        g_clear_error(&error);
+        rec = gst_parse_bin_from_description(vDesc.toUtf8().constData(),
+                                             TRUE, &error);
+    }
+    if (!rec) {
+        g_clear_error(&error);
+        gst_object_unref(cam);
+        gst_object_unref(vidsink);
+        return false;
+    }
+    gst_element_set_name(rec, "hwrecbin");
+
+    // vidsrc is quiescent outside recording, so relinking it is safe.
+    GstPad *vidsrcpad = gst_element_get_static_pad(cam, "vidsrc");
+    GstPad *oldsink = gst_element_get_static_pad(vidsink, "sink");
+    gst_pad_unlink(vidsrcpad, oldsink);
+    gst_object_unref(oldsink);
+
+    gst_bin_add(GST_BIN(bin), rec);
+    gst_element_sync_state_with_parent(rec);
+    GstPad *recsink = gst_element_get_static_pad(rec, "sink");
+    const bool linked = gst_pad_link(vidsrcpad, recsink) == GST_PAD_LINK_OK;
+    gst_object_unref(recsink);
+
+    if (!linked) {
+        gst_element_set_state(rec, GST_STATE_NULL);
+        gst_bin_remove(GST_BIN(bin), rec);
+        GstPad *os = gst_element_get_static_pad(vidsink, "sink");
+        gst_pad_link(vidsrcpad, os);
+        gst_object_unref(os);
+        gst_object_unref(vidsrcpad);
+        gst_object_unref(cam);
+        gst_object_unref(vidsink);
+        return false;
+    }
+    gst_object_unref(vidsrcpad);
+
+    // Video mode renegotiates vidsrc against h264parse, selecting the
+    // hardware encoder; then start-capture begins the recording.
+    g_object_set(cam, "mode", 2, nullptr);
+
+    GstElement *filesink = gst_bin_get_by_name(GST_BIN(rec), "recsink");
+    GstPad *fspad = gst_element_get_static_pad(filesink, "sink");
+    gst_pad_add_probe(fspad,
+        static_cast<GstPadProbeType>(GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM),
+        [](GstPad *, GstPadProbeInfo *info, gpointer u) -> GstPadProbeReturn {
+            if (GST_EVENT_TYPE(GST_PAD_PROBE_INFO_EVENT(info)) != GST_EVENT_EOS)
+                return GST_PAD_PROBE_OK;
+            auto *self = static_cast<DroidCameraFactory *>(u);
+            QMetaObject::invokeMethod(self, [self] {
+                self->finishHwRecording();
+            }, Qt::QueuedConnection);
+            return GST_PAD_PROBE_REMOVE;
+        }, this, nullptr);
+    gst_object_unref(fspad);
+    gst_object_unref(filesink);
+
+    g_signal_emit_by_name(cam, "start-capture");
+    gst_object_unref(cam);
+    gst_object_unref(vidsink);
+
+    m_recBin = rec;
+    m_hwRecording = true;
+    m_pendingVideoPath = filePath;
+    qInfo() << "DroidCameraFactory: HW recording to" << filePath;
+    emit recordingChanged();
+    return true;
+#else
+    Q_UNUSED(bin); Q_UNUSED(filePath);
+    return false;
+#endif
+}
+
+void DroidCameraFactory::finishHwRecording()
+{
+#ifdef HAVE_QGSTREAMER_VIDEO_SOURCE
+    auto *source = qobject_cast<QGStreamerVideoSource *>(m_videoSource);
+    auto *rec = static_cast<GstElement *>(m_recBin);
+    if (!rec)
+        return;
+
+    gst_element_set_state(rec, GST_STATE_NULL);
+    if (source && source->gstElement()) {
+        GstElement *bin = source->gstElement();
+        GstElement *cam = gst_bin_get_by_name(GST_BIN(bin), "droidcam");
+        GstElement *vidsink = gst_bin_get_by_name(GST_BIN(bin), "vidsink");
+        gst_bin_remove(GST_BIN(bin), rec);
+        if (cam && vidsink) {
+            GstPad *vidsrcpad = gst_element_get_static_pad(cam, "vidsrc");
+            GstPad *os = gst_element_get_static_pad(vidsink, "sink");
+            gst_pad_link(vidsrcpad, os);
+            gst_object_unref(os);
+            gst_object_unref(vidsrcpad);
+            // back to image mode so stills work again
+            g_object_set(cam, "mode", 1, nullptr);
+        }
+        if (cam) gst_object_unref(cam);
+        if (vidsink) gst_object_unref(vidsink);
+    }
+
+    const QString path = m_pendingVideoPath;
+    m_pendingVideoPath.clear();
+    m_recBin = nullptr;
+    m_hwRecording = false;
+    emit recordingChanged();
+    qInfo() << "DroidCameraFactory: saved HW recording to" << path;
     emit videoSaved(path);
 #endif
 }
