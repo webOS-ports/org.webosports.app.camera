@@ -16,6 +16,30 @@ Item {
     property PreferencesModel prefs;
     property alias captureSessionItem: captureSession
 
+    // On Halium devices the cameras sit behind the Android HAL and are not
+    // enumerable through MediaDevices; gst-droid's droidcamsrc is the way in.
+    property bool useDroidCamera: DroidCameraFactory.available
+    property int droidCameraDevice: 0
+
+    function attachDroidCamera() {
+        var source = DroidCameraFactory.createVideoSource(droidCameraDevice);
+        if (source) {
+            captureSession.camera = null;
+            captureSession.nativeVideoSource = source;
+            source.start();
+        }
+    }
+
+    Component.onCompleted: {
+        if (useDroidCamera)
+            attachDroidCamera();
+    }
+
+    onDroidCameraDeviceChanged: {
+        if (useDroidCamera)
+            attachDroidCamera();
+    }
+
     MediaDevices {
         id: mediaDevices
     }
@@ -57,6 +81,10 @@ Item {
 
             Component.onCompleted: {
                 //updateResolutionOptions();
+
+                // The droid video source replaces this camera entirely.
+                if (cameraViewRoot.useDroidCamera)
+                    return;
 
                 console.log("cameraDevice: " + JSON.stringify(camera.cameraDevice));
                 console.log("camera format: " + JSON.stringify(camera.cameraFormat));
