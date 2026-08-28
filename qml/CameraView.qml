@@ -40,16 +40,28 @@ Item {
             attachDroidCamera();
     }
 
-    MediaDevices {
-        id: mediaDevices
+    // Only instantiated off the droid path: enumerating video inputs makes
+    // Qt's GStreamer backend start a v4l2 device monitor that probes every
+    // /dev/video node in-process. On QCOM those are the camera HAL's own
+    // CSL kernel nodes, and probing them corrupts the vendor HAL's session
+    // - CamX then fails startPreview with a kernel-level sensor-acquire
+    // error. droidcamsrc is not enumerable anyway.
+    Loader {
+        id: mediaDevicesLoader
+        active: !cameraViewRoot.useDroidCamera
+        sourceComponent: MediaDevices {}
     }
 
-    CaptureSession {
-        id: captureSession
-        camera: Camera {
+    // The V4L2 camera is only instantiated off the droid path: even
+    // constructing a QCamera makes the backend enumerate video devices,
+    // which starts the v4l2 monitor (see mediaDevicesLoader above).
+    Loader {
+        id: cameraLoader
+        active: !cameraViewRoot.useDroidCamera
+        sourceComponent: Camera {
             id: camera
 
-            cameraDevice: mediaDevices.defaultVideoInput
+            cameraDevice: mediaDevicesLoader.item ? mediaDevicesLoader.item.defaultVideoInput : undefined
             cameraFormat: cameraDevice.videoFormats[0]
 
             flashMode: camera.captureMode === PreferencesModel.CaptureStillImage ? prefs.flashMode :
@@ -109,6 +121,11 @@ Item {
             }
             */
        }
+    }
+
+    CaptureSession {
+        id: captureSession
+        camera: cameraLoader.item
         imageCapture: ImageCapture {
             id: imageCapture
 
