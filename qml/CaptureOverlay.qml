@@ -25,6 +25,22 @@ Item {
 
         console.log("image storage : " + outputPath);
 
+        if (prefs.captureMode === PreferencesModel.CaptureVideo) {
+            var videoPath = StorageLocations.videosLocation + "/" + dateAsString + ".mp4";
+            if (DroidCameraFactory.available) {
+                if (DroidCameraFactory.recording)
+                    DroidCameraFactory.stopRecording();
+                else
+                    DroidCameraFactory.startRecording(videoPath);
+            } else if (captureSession.recorder) {
+                if (captureSession.recorder.recorderState === MediaRecorder.RecordingState)
+                    captureSession.recorder.stop();
+                else
+                    captureSession.recorder.record();
+            }
+            return;
+        }
+
         // start he capture !capture the image!
         timeOutTimer.startTimeout(captureTimeout, function() {
                 if (DroidCameraFactory.available) {
@@ -91,11 +107,24 @@ Item {
             }
         }
 
-        // take a photo
+        // take a photo / toggle recording
         Image {
             source: "images/shutter.svg"
             height: Units.gu(8);
             width: Units.gu(8);
+            Rectangle {
+                // recording indicator: the shutter pulses red while rolling
+                anchors.centerIn: parent
+                width: parent.width * 0.5; height: width; radius: width / 2
+                color: "#e0342f"
+                visible: DroidCameraFactory.recording
+                SequentialAnimation on opacity {
+                    running: DroidCameraFactory.recording
+                    loops: Animation.Infinite
+                    NumberAnimation { from: 1.0; to: 0.4; duration: 600 }
+                    NumberAnimation { from: 0.4; to: 1.0; duration: 600 }
+                }
+            }
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
