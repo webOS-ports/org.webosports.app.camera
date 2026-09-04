@@ -2,7 +2,6 @@
 set(plugin_SRCS
     components.cpp
     advancedcamerasettings.cpp
-    droidcamerafactory.cpp
     fileoperations.cpp
     foldersmodel.cpp
     pieslice.cpp
@@ -13,7 +12,6 @@ set(plugin_SRCS
 set(plugin_HDRS
     components.h
     advancedcamerasettings.h
-    droidcamerafactory.h
     fileoperations.h
     foldersmodel.h
     pieslice.h
@@ -31,22 +29,6 @@ target_link_libraries(camera-qml
     ${Qt6Quick_LIBRARIES}
     ${Qt6Multimedia_LIBRARIES}
     )
-
-# The QtMultimedia GStreamer SPI headers (QtMultimedia/spi/, used by
-# DroidCameraFactory) install under the versioned include dir, which only the
-# Private target puts on the include path. Present when qtmultimedia was
-# built with -DFEATURE_gstreamer_qt_api=ON; the factory compiles to a stub
-# otherwise (__has_include).
-find_package(Qt6 QUIET COMPONENTS MultimediaPrivate)
-if(TARGET Qt6::MultimediaPrivate)
-    target_link_libraries(camera-qml Qt6::MultimediaPrivate)
-endif()
-
-# DroidCameraFactory drives droidcamsrc's still-capture path directly
-# (appsink + start-capture), which needs the GStreamer C API.
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GSTREAMER REQUIRED IMPORTED_TARGET gstreamer-1.0)
-target_link_libraries(camera-qml PkgConfig::GSTREAMER)
 
 install(TARGETS camera-qml DESTINATION ${PLUGIN_DIR})
 install(FILES qmldir DESTINATION ${PLUGIN_DIR})
