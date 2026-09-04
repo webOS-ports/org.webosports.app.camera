@@ -52,7 +52,7 @@ void Components::registerTypes(const char *uri)
     // default. This runs at import time, before the first QtMultimedia
     // object is instantiated and the backend choice is locked in.
     if (!qEnvironmentVariableIsSet("QT_MEDIA_BACKEND")
-            && QFile::exists(QStringLiteral("/usr/lib/gstreamer-1.0/libgstdroid.so")))
+            && DroidCameraFactory::droidPluginAvailable())
         qputenv("QT_MEDIA_BACKEND", "gstreamer");
 
     // @uri CameraApp
