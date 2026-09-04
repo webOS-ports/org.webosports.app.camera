@@ -4,6 +4,7 @@ import QtMultimedia
 import LunaNext.Common 0.1
 
 import CameraApp 0.1
+import LuneOS.Camera 1.0
 import "components"
 
 Item {
