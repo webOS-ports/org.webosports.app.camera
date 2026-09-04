@@ -34,6 +34,154 @@
  * GST_PLUGIN_PATH once the Android media services answer, so a hardcoded
  * ${libdir}/gstreamer-1.0 probe reports "not installed" on exactly the
  * devices where it is installed and working. */
+/* The PulseAudio source to record from, resolved at run time.
+ *
+ * It cannot be hardcoded: the physical name differs per device
+ * (source.primary_input on some, source.droid on others). Nor can it be left
+ * unset, and nor can the LuneOS virtual source "record" be used - both end up
+ * on a null source. module-palm-policy rewrites a capture stream that names
+ * no device to the "record" virtual source, and that source only carries
+ * anything once audiod has bound it to a physical input with
+ * set_source_inputdevice(); until then it is module-null-source, i.e.
+ * silence. Naming a physical source instead takes the policy module's
+ * "physical device" path, which leaves the stream where we put it.
+ *
+ * The pulse device provider marks PulseAudio's default source with
+ * is-default, and building an element from the GstDevice yields a pulsesrc
+ * with its device property already filled in, so ask GStreamer rather than
+ * guessing. */
+static QByteArray recordingAudioSource()
+{
+    GstDeviceMonitor *monitor = gst_device_monitor_new();
+    gst_device_monitor_add_filter(monitor, "Audio/Source", nullptr);
+
+    if (!gst_device_monitor_start(monitor)) {
+        gst_object_unref(monitor);
+        return QByteArray();
+    }
+
+    QByteArray name;
+
+    /* The pulse device provider enumerates over its own PulseAudio
+     * connection, so the list is not populated by the time start() returns -
+     * asking once yields nothing. Give it a moment to answer. */
+    GList *devices = nullptr;
+    for (int attempt = 0; attempt < 40 && !devices; attempt++) {
+        devices = gst_device_monitor_get_devices(monitor);
+        if (!devices)
+            g_usleep(50 * 1000);
+    }
+
+    /* Prefer the source PulseAudio calls default, but do not depend on it:
+     * is-default reflects a server query that is briefly unset while the
+     * server is settling, and a recording started in that window would
+     * otherwise fall back to silent video for no good reason. Any other
+     * real pulse source is a better answer than none. The virtual sources
+     * from webos-virtual-devices.pa are device.class=abstract and the ALSA
+     * provider's nodes are not pulsesrc, so requiring class=sound from a
+     * pulsesrc device excludes both. */
+    QByteArray fallback;
+
+    for (GList *l = devices; l && name.isEmpty(); l = l->next) {
+        GstDevice *device = GST_DEVICE(l->data);
+
+        GstStructure *props = gst_device_get_properties(device);
+        if (!props)
+            continue;
+
+        gboolean isDefault = FALSE;
+        gst_structure_get_boolean(props, "is-default", &isDefault);
+        const gchar *deviceClass = gst_structure_get_string(props, "device.class");
+        const bool soundSource = deviceClass && !g_strcmp0(deviceClass, "sound");
+        gst_structure_free(props);
+
+        if (!soundSource)
+            continue;
+
+        GstElement *element = gst_device_create_element(device, nullptr);
+        if (!element)
+            continue;
+
+        GstElementFactory *factory = gst_element_get_factory(element);
+        const bool isPulse =
+            factory && !g_strcmp0(GST_OBJECT_NAME(factory), "pulsesrc");
+
+        gchar *deviceName = nullptr;
+        if (isPulse)
+            g_object_get(element, "device", &deviceName, nullptr);
+
+        if (deviceName) {
+            if (isDefault)
+                name = QByteArray(deviceName);
+            else if (fallback.isEmpty())
+                fallback = QByteArray(deviceName);
+            g_free(deviceName);
+        }
+        gst_object_unref(element);
+    }
+
+    if (name.isEmpty())
+        name = fallback;
+
+    g_list_free_full(devices, gst_object_unref);
+    gst_device_monitor_stop(monitor);
+    gst_object_unref(monitor);
+
+    if (name.isEmpty())
+        qWarning() << "DroidCameraFactory: no default audio source for recording";
+
+    return name;
+}
+
+/* Whether an audio source usable for recording can actually be opened.
+ * Parsing the description only proves the syntax: pulsesrc resolves its
+ * device on the way to PLAYING, so a missing or unusable source surfaces
+ * as a bus error long after gst_parse_bin_from_description() succeeded -
+ * leaving a recording running with a dead audio branch and a zero-byte
+ * file. Probe it up front so the video-only fallback can be taken.
+ *
+ * It has to be driven all the way to PLAYING: pulsesrc only connects its
+ * stream there (the "No such entity" failure comes out of
+ * gst_pulsesrc_prepare), and being a live source it answers PAUSED with
+ * NO_PREROLL rather than SUCCESS, which is not a failure. */
+static bool audioSourceUsable(const char *device)
+{
+    gchar *desc = g_strdup_printf("pulsesrc device=%s ! fakesink sync=false", device);
+    GError *error = nullptr;
+    GstElement *probe = gst_parse_launch(desc, &error);
+    g_free(desc);
+    g_clear_error(&error);
+    if (!probe)
+        return false;
+
+    bool ok = gst_element_set_state(probe, GST_STATE_PLAYING) != GST_STATE_CHANGE_FAILURE;
+
+    if (ok) {
+        const GstStateChangeReturn ret =
+            gst_element_get_state(probe, nullptr, nullptr, 2 * GST_SECOND);
+        ok = ret == GST_STATE_CHANGE_SUCCESS || ret == GST_STATE_CHANGE_NO_PREROLL;
+    }
+
+    if (ok) {
+        GstBus *bus = gst_element_get_bus(probe);
+        GstMessage *msg =
+            gst_bus_timed_pop_filtered(bus, GST_SECOND, GST_MESSAGE_ERROR);
+        if (msg) {
+            ok = false;
+            gst_message_unref(msg);
+        }
+        gst_object_unref(bus);
+    }
+
+    gst_element_set_state(probe, GST_STATE_NULL);
+    gst_object_unref(probe);
+
+    if (!ok)
+        qWarning() << "DroidCameraFactory: audio source" << device
+                   << "unusable, recording video only";
+    return ok;
+}
+
 bool DroidCameraFactory::droidPluginAvailable()
 {
     static const bool available = [] {
@@ -237,15 +385,16 @@ bool DroidCameraFactory::startRecording(const QString &filePath)
     // droid-buffer memory from droidcamsrc's video mode, which conflicts
     // with the raw viewfinder Qt needs. Encode at quarter pixels to keep
     // the CPU load sane. AAC audio from PulseAudio when available.
+    const QByteArray audioSource = recordingAudioSource();
     const QString avDesc = QStringLiteral(
         "queue name=recentry max-size-buffers=30 leaky=downstream ! "
         "videoconvert ! videoscale ! "
         "video/x-raw,format=I420,width=1344,height=672 ! "
         "avenc_mpeg4 bitrate=8000000 ! mp4mux name=recmux ! "
         "filesink name=recsink async=false location=\"%1\" "
-        "pulsesrc device=source.primary_input ! audioconvert ! "
+        "pulsesrc device=%2 ! audioconvert ! "
         "avenc_aac ! queue ! recmux.")
-        .arg(filePath);
+        .arg(filePath, QString::fromLatin1(audioSource));
     const QString vDesc = QStringLiteral(
         "queue name=recentry max-size-buffers=30 leaky=downstream ! "
         "videoconvert ! videoscale ! "
@@ -255,11 +404,13 @@ bool DroidCameraFactory::startRecording(const QString &filePath)
         .arg(filePath);
 
     GError *error = nullptr;
-    // A/V first; falls back to video-only if the audio chain cannot be
-    // built (e.g. no droid mic source on this device - it needs the
+    // A/V first; falls back to video-only when the audio chain cannot be
+    // used (e.g. no droid mic source on this device - it needs the
     // 16-bit input override in /etc/pulse/droid-audio, see the recipe).
-    GstElement *rec = gst_parse_bin_from_description(
-        avDesc.toUtf8().constData(), TRUE, &error);
+    GstElement *rec = nullptr;
+    if (!audioSource.isEmpty() && audioSourceUsable(audioSource.constData()))
+        rec = gst_parse_bin_from_description(
+            avDesc.toUtf8().constData(), TRUE, &error);
     if (!rec) {
         g_clear_error(&error);
         rec = gst_parse_bin_from_description(vDesc.toUtf8().constData(),
@@ -418,18 +569,22 @@ bool DroidCameraFactory::startHwRecording(GstElement *bin,
         return false;
     }
 
+    const QByteArray audioSource = recordingAudioSource();
     const QString avDesc = QStringLiteral(
         "h264parse ! mp4mux name=recmux ! "
         "filesink name=recsink async=false location=\"%1\" "
-        "pulsesrc device=source.primary_input ! audioconvert ! "
-        "avenc_aac ! queue ! recmux.").arg(filePath);
+        "pulsesrc device=%2 ! audioconvert ! "
+        "avenc_aac ! queue ! recmux.")
+        .arg(filePath, QString::fromLatin1(audioSource));
     const QString vDesc = QStringLiteral(
         "h264parse ! mp4mux name=recmux ! "
         "filesink name=recsink async=false location=\"%1\"").arg(filePath);
 
     GError *error = nullptr;
-    GstElement *rec = gst_parse_bin_from_description(
-        avDesc.toUtf8().constData(), TRUE, &error);
+    GstElement *rec = nullptr;
+    if (!audioSource.isEmpty() && audioSourceUsable(audioSource.constData()))
+        rec = gst_parse_bin_from_description(
+            avDesc.toUtf8().constData(), TRUE, &error);
     if (!rec) {
         g_clear_error(&error);
         rec = gst_parse_bin_from_description(vDesc.toUtf8().constData(),
