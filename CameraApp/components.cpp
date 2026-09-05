@@ -22,7 +22,6 @@
 #include <QFile>
 #include "components.h"
 #include "advancedcamerasettings.h"
-#include "droidcamerafactory.h"
 #include "fileoperations.h"
 #include "foldersmodel.h"
 #include "pieslice.h"
@@ -36,24 +35,9 @@ static QObject* StorageLocations_singleton_factory(QQmlEngine* engine, QJSEngine
     return new StorageLocations();
 }
 
-static QObject* DroidCameraFactory_singleton_factory(QQmlEngine* engine, QJSEngine* scriptEngine)
-{
-    Q_UNUSED(engine);
-    Q_UNUSED(scriptEngine);
-    return new DroidCameraFactory();
-}
-
 void Components::registerTypes(const char *uri)
 {
    Q_ASSERT(uri == QLatin1String("CameraApp"));
-
-    // The cameras on Halium devices are only reachable through gst-droid, so
-    // QtMultimedia must use its GStreamer backend instead of the ffmpeg
-    // default. This runs at import time, before the first QtMultimedia
-    // object is instantiated and the backend choice is locked in.
-    if (!qEnvironmentVariableIsSet("QT_MEDIA_BACKEND")
-            && QFile::exists(QStringLiteral("/usr/lib/gstreamer-1.0/libgstdroid.so")))
-        qputenv("QT_MEDIA_BACKEND", "gstreamer");
 
     // @uri CameraApp
     qmlRegisterType<AdvancedCameraSettings>(uri, 0, 1, "AdvancedCameraSettings");
@@ -62,7 +46,6 @@ void Components::registerTypes(const char *uri)
     qmlRegisterType<MenuPieSlice>(uri, 0, 1, "MenuPieSlice");
     qmlRegisterType<StorageMonitor>(uri, 0, 1, "StorageMonitor");
     qmlRegisterSingletonType<StorageLocations>(uri, 0, 1, "StorageLocations", StorageLocations_singleton_factory);
-    qmlRegisterSingletonType<DroidCameraFactory>(uri, 0, 1, "DroidCameraFactory", DroidCameraFactory_singleton_factory);
 }
 
 void Components::initializeEngine(QQmlEngine *engine, const char *uri)

@@ -4,6 +4,7 @@ import QtMultimedia
 import LunaNext.Common 0.1
 
 import CameraApp 0.1
+import LuneOS.Camera 1.0
 import "components"
 
 Item {
@@ -50,6 +51,12 @@ Item {
         }
         function onImageCaptureError(message) {
             console.warn("droid capture failed: " + message);
+        }
+        function onVideoSaved(path) {
+            cameraViewRoot.captureDone(path);
+        }
+        function onVideoCaptureError(message) {
+            console.warn("droid recording failed: " + message);
         }
     }
 
