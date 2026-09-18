@@ -17,6 +17,20 @@ Item {
     property PreferencesModel prefs;
     property alias captureSessionItem: captureSession
 
+    // Digital zoom. Qt's gstreamer camera backend never implements
+    // setZoomFactor() - QPlatformCamera's default is a no-op and the gstreamer
+    // plugin does not override it - so camera.zoomFactor does nothing and the
+    // zoom has to be applied to the viewfinder itself. This scales the preview;
+    // a still capture still comes off the full frame.
+    property real zoomFactor: 1.0
+    readonly property real minimumZoomFactor: 1.0
+    readonly property real maximumZoomFactor: 8.0
+
+    function setZoomFactor(value) {
+        zoomFactor = Math.max(minimumZoomFactor,
+                              Math.min(maximumZoomFactor, value));
+    }
+
     // On Halium devices the cameras sit behind the Android HAL and are not
     // enumerable through MediaDevices; gst-droid's droidcamsrc is the way in.
     property bool useDroidCamera: DroidCameraFactory.available
@@ -61,9 +75,21 @@ Item {
         17  // Format_YUYV    - LAST: packed YUV import is broken here
     ]
 
-    // The viewfinder is 720x1440; there is nothing to gain from running the
-    // ISP at the full 3264x2448 sensor just to fill it.
-    readonly property size maxPreviewResolution: Qt.size(1280, 720)
+    // Not every sensor mode sees the whole scene. The PineTab2's OV5648 reads
+    // the full array subsampled for some sizes and takes a centre crop for
+    // others:
+    //
+    //   2592x1944  full readout   100% of the width
+    //   1600x1200  centre crop     62%
+    //   1920x1080  centre crop     74%
+    //   1280x960   subsampled     100%
+    //   1280x720   subsampled     100%
+    //    640x480   subsampled     101%
+    //
+    // so even 1080p would crop a third of the field of view away. Cap the
+    // viewfinder at the largest mode that still reads the whole array; there
+    // is nothing to gain from running the ISP at full resolution to fill it.
+    readonly property size maxPreviewResolution: Qt.size(1280, 960)
 
     // Neither the app's old videoFormats[0] nor Qt's own findBestCameraFormat()
     // yields a colour format here. libcamerasrc reports maxFrameRate = 0 for
@@ -264,6 +290,7 @@ Item {
 
             onCameraDeviceChanged: {
                 cameraFormatApplied = false;
+                cameraViewRoot.setZoomFactor(1.0);
             }
 
             function applyPreferredFormatIfMono() {
@@ -271,9 +298,21 @@ Item {
                     return;
 
                 var current = camera.cameraFormat;
-                if (current && current.pixelFormat !== 24 /* Y8 */
-                            && current.pixelFormat !== 25 /* Y16 */) {
-                    cameraFormatApplied = true; // already colour, leave it alone
+                var mono = !current || current.pixelFormat === 24 /* Y8 */
+                                    || current.pixelFormat === 25 /* Y16 */;
+
+                // Colour alone is not enough of a test. Qt's default is
+                // whatever libcamera enumerates first, which on the PineTab2 is
+                // the sensor's smallest mode - 640x480, four times subsampled -
+                // stretched over the whole viewfinder. Take our pick whenever
+                // it is sharper than what we were handed.
+                var wanted = cameraViewRoot.pickCameraFormat(cameraDevice);
+                var coarse = wanted && current
+                             && (wanted.resolution.width * wanted.resolution.height)
+                                > (current.resolution.width * current.resolution.height);
+
+                if (!mono && !coarse) {
+                    cameraFormatApplied = true; // good enough, leave it alone
                     return;
                 }
 
@@ -384,12 +423,71 @@ Item {
         videoOutput: videoOutputView
     }
 
-    VideoOutput {
-        id: videoOutputView
+    Item {
+        id: viewfinder
         anchors.fill: parent
-        fillMode: VideoOutput.PreserveAspectCrop
+        clip: true
 
-        //orientation: camera.position === Camera.BackFace ? -camera.orientation : camera.orientation
+        VideoOutput {
+            id: videoOutputView
+            anchors.fill: parent
+
+            // PreserveAspectCrop fills the viewfinder by discarding whatever
+            // does not fit, which for a 4:3 sensor in a tall viewfinder is more
+            // than half the width - the preview looks heavily zoomed in before
+            // any zoom is asked for. Show the whole frame and let the user zoom
+            // deliberately.
+            fillMode: VideoOutput.PreserveAspectFit
+
+            transform: Scale {
+                origin.x: videoOutputView.width / 2
+                origin.y: videoOutputView.height / 2
+                xScale: cameraViewRoot.zoomFactor
+                yScale: cameraViewRoot.zoomFactor
+            }
+
+            //orientation: camera.position === Camera.BackFace ? -camera.orientation : camera.orientation
+        }
+
+        PinchArea {
+            anchors.fill: parent
+            property real pinchStartZoom: 1.0
+
+            onPinchStarted: pinchStartZoom = cameraViewRoot.zoomFactor
+            onPinchUpdated: cameraViewRoot.setZoomFactor(pinchStartZoom * pinch.scale)
+
+            MouseArea {
+                anchors.fill: parent
+                // CaptureOverlay is a later sibling of CameraView in main.qml,
+                // so it sits above this and keeps its own taps; nothing here
+                // needs to let events through.
+                onDoubleClicked: cameraViewRoot.setZoomFactor(1.0)
+                onWheel: function(wheel) {
+                    cameraViewRoot.setZoomFactor(cameraViewRoot.zoomFactor
+                                                 * (wheel.angleDelta.y > 0 ? 1.1 : 1 / 1.1));
+                }
+            }
+        }
+
+        // Only shown while actually zoomed.
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.topMargin: Units.gu(2)
+            width: zoomLabel.width + Units.gu(2)
+            height: zoomLabel.height + Units.gu(1)
+            radius: height / 2
+            color: "#80000000"
+            visible: cameraViewRoot.zoomFactor > 1.001
+
+            Text {
+                id: zoomLabel
+                anchors.centerIn: parent
+                color: "white"
+                font.pixelSize: Units.gu(1.5)
+                text: cameraViewRoot.zoomFactor.toFixed(1) + "x"
+            }
+        }
     }
     GridLines {
         anchors.fill: parent
