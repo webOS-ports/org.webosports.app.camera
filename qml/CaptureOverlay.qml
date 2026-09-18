@@ -34,10 +34,15 @@ Item {
                 else
                     DroidCameraFactory.startRecording(videoPath);
             } else if (captureSession.recorder) {
-                if (captureSession.recorder.recorderState === MediaRecorder.RecordingState)
+                if (captureSession.recorder.recorderState === MediaRecorder.RecordingState) {
                     captureSession.recorder.stop();
-                else
+                    FlashLed.on = false;
+                } else {
+                    // The libcamera path has no flash control, so the LED is
+                    // driven directly: as a torch for the whole recording.
+                    FlashLed.on = prefs.videoFlashMode === Camera.FlashOn;
                     captureSession.recorder.record();
+                }
             }
             return;
         }
@@ -48,11 +53,34 @@ Item {
                     // Qt's QImageCapture never fires without a QCamera, so
                     // full-resolution stills go through droidcamsrc directly.
                     DroidCameraFactory.takePicture(outputPath + ".jpg");
+                } else if (prefs.flashMode === Camera.FlashOn && FlashLed.available) {
+                    // Light the scene, give the exposure a few frames to
+                    // settle on it, then capture. CameraView switches the LED
+                    // off when the image is saved; the timer is the fallback.
+                    FlashLed.on = true;
+                    flashSettleTimer.outputPath = outputPath;
+                    flashSettleTimer.start();
                 } else {
                     captureSession.imageCapture.captureToFile(outputPath);
                 }
             }
         );
+    }
+
+    Timer {
+        id: flashSettleTimer
+        property string outputPath
+        interval: 400
+        onTriggered: {
+            captureSession.imageCapture.captureToFile(outputPath);
+            flashOffTimer.start();
+        }
+    }
+
+    Timer {
+        id: flashOffTimer
+        interval: 2000
+        onTriggered: FlashLed.on = false
     }
 
     TimeoutTimerText {

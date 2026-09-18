@@ -23,10 +23,18 @@
 #include "components.h"
 #include "advancedcamerasettings.h"
 #include "fileoperations.h"
+#include "flashled.h"
 #include "foldersmodel.h"
 #include "pieslice.h"
 #include "storagemonitor.h"
 #include "storagelocations.h"
+
+static QObject* FlashLed_singleton_factory(QQmlEngine* engine, QJSEngine* scriptEngine)
+{
+    Q_UNUSED(engine);
+    Q_UNUSED(scriptEngine);
+    return new FlashLed();
+}
 
 static QObject* StorageLocations_singleton_factory(QQmlEngine* engine, QJSEngine* scriptEngine)
 {
@@ -42,6 +50,7 @@ void Components::registerTypes(const char *uri)
     // @uri CameraApp
     qmlRegisterType<AdvancedCameraSettings>(uri, 0, 1, "AdvancedCameraSettings");
     qmlRegisterType<FileOperations>(uri, 0, 1, "FileOperations");
+    qmlRegisterSingletonType<FlashLed>(uri, 0, 1, "FlashLed", FlashLed_singleton_factory);
     qmlRegisterType<FoldersModel>(uri, 0, 1, "FoldersModel");
     qmlRegisterType<MenuPieSlice>(uri, 0, 1, "MenuPieSlice");
     qmlRegisterType<StorageMonitor>(uri, 0, 1, "StorageMonitor");

@@ -1,4 +1,5 @@
 import QtQuick 2.6
+import QtQuick.Window 2.2
 import QtMultimedia
 
 import LunaNext.Common 0.1
@@ -25,6 +26,20 @@ Item {
     property real zoomFactor: 1.0
     readonly property real minimumZoomFactor: 1.0
     readonly property real maximumZoomFactor: 8.0
+
+    // Viewfinder rotation. The frame arrives the way the sensor scans it,
+    // and the shell rotates the whole screen with the device: luna-
+    // surfacemanager sets the wl_output transform, which Qt reports as
+    // Screen.orientation. Undo that rotation here, then add the sensor's
+    // own mounting rotation, so the preview stays upright in every
+    // orientation. The front sensor is mirrored, as a mirror would be.
+    readonly property int screenRotation:
+        Screen.angleBetween(Screen.primaryOrientation, Screen.orientation)
+    readonly property int sensorRotation: !prefs ? 0 :
+        prefs.position === CameraDevice.FrontFace ? prefs.frontSensorRotation
+                                                  : prefs.backSensorRotation
+    readonly property int viewfinderRotation:
+        ((sensorRotation - screenRotation) % 360 + 360) % 360
 
     function setZoomFactor(value) {
         zoomFactor = Math.max(minimumZoomFactor,
@@ -421,7 +436,11 @@ Item {
                 cameraViewRoot.imageCaptured(previewImage)
             }
             onImageSaved: (requestId, path) => {
+                FlashLed.on = false;
                 cameraViewRoot.captureDone(path);
+            }
+            onErrorOccurred: (requestId, error, message) => {
+                FlashLed.on = false;
             }
         }
 
@@ -465,7 +484,8 @@ Item {
                 yScale: cameraViewRoot.zoomFactor
             }
 
-            //orientation: camera.position === Camera.BackFace ? -camera.orientation : camera.orientation
+            orientation: cameraViewRoot.viewfinderRotation
+            mirrored: prefs && prefs.position === CameraDevice.FrontFace
         }
 
         PinchArea {

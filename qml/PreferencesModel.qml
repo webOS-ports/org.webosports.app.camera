@@ -26,6 +26,12 @@ QtObject {
     property bool gridEnabled: false
     property bool preferRemovableStorage: false
     property bool playShutterSound: true
+    // How each sensor is mounted, in degrees clockwise relative to the
+    // device held in its natural orientation. libcamera reads this from the
+    // device tree (the Rotation property) but Qt 6.12's gstreamer backend
+    // does not pass it on, so it lives here until it does.
+    property int backSensorRotation: 0
+    property int frontSensorRotation: 0
 
     property ResolutionsListModel photoResolutionOptionsModel: ResolutionsListModel {}
     property ResolutionsListModel videoResolutionOptionsModel: ResolutionsListModel {}

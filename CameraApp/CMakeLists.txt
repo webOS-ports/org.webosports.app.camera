@@ -3,6 +3,7 @@ set(plugin_SRCS
     components.cpp
     advancedcamerasettings.cpp
     fileoperations.cpp
+    flashled.cpp
     foldersmodel.cpp
     pieslice.cpp
     storagemonitor.cpp
@@ -13,6 +14,7 @@ set(plugin_HDRS
     components.h
     advancedcamerasettings.h
     fileoperations.h
+    flashled.h
     foldersmodel.h
     pieslice.h
     storagemonitor.h
