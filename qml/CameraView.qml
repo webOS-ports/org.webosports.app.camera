@@ -67,6 +67,13 @@ Item {
     // its own log). The result is the raw planes painted straight into RGB.
     // I420 is the least broken of the colour layouts, so it leads.
     readonly property var preferredPixelFormats: [
+        // A libcamera camera driven by the software ISP - the PineTab2 - hands
+        // out nothing but packed RGB, already debayered, one plane, and it
+        // imports cleanly. Take those first when they are on offer.
+        6,  // Format_BGRX8888
+        10, // Format_RGBX8888
+        4,  // Format_BGRA8888
+        9,  // Format_RGBA8888
         13, // Format_YUV420P (I420) - converts; still a green cast, see above
         15, // Format_YV12    - same planar layout, U/V swapped
         14, // Format_YUV422P
@@ -146,9 +153,21 @@ Item {
         if (!inputs || inputs.length === 0)
             return undefined;
 
+        // Qt lists the kernel's own capture nodes next to the real cameras:
+        // four "rkisp1" entries on the PinePhone Pro, four "rockchip-cif" ones
+        // on the PineTab2. They are the raw end of the pipeline, they advertise
+        // nothing but the driver's 64x64 - 8192x8192 stepwise range, and
+        // picking one negotiates a 64x64 buffer that v4l2src then fails to
+        // allocate - a black viewfinder and "Failed to allocate required
+        // memory" from gst_v4l2src_decide_allocation().
+        //
+        // A libcamera-backed camera reports its camera id as the description,
+        // which is a device tree path, so keep those and fall back to the whole
+        // list only if there are none.
         var cameras = [];
         for (var i = 0; i < inputs.length; ++i) {
-            if (inputs[i].description.indexOf("rkisp1") !== 0)
+            var description = inputs[i].description;
+            if (description && description.charAt(0) === "/")
                 cameras.push(inputs[i]);
         }
         if (cameras.length === 0)
