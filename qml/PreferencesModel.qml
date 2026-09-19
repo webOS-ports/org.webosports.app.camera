@@ -34,9 +34,10 @@ QtObject {
     // pass it on, so it lives here until it does. Phones (PinePhone Pro) have
     // their sensors along the portrait-native panel: 0. The PineTab 2 has a
     // portrait-native panel too, but its sensors are mounted along the long
-    // edge for landscape use, a quarter turn away.
-    property int backSensorRotation: Settings.tabletUi ? 90 : 0
-    property int frontSensorRotation: Settings.tabletUi ? 90 : 0
+    // edge for landscape use, a quarter turn away (270: 90 shows the image
+    // upside down).
+    property int backSensorRotation: Settings.tabletUi ? 270 : 0
+    property int frontSensorRotation: Settings.tabletUi ? 270 : 0
 
     property ResolutionsListModel photoResolutionOptionsModel: ResolutionsListModel {}
     property ResolutionsListModel videoResolutionOptionsModel: ResolutionsListModel {}

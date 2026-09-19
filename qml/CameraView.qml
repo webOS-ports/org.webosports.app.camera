@@ -33,14 +33,30 @@ Item {
     // Screen.orientation. Undo that rotation here, then add the sensor's
     // own mounting rotation, so the preview stays upright in every
     // orientation. The front sensor is mirrored, as a mirror would be.
-    readonly property int screenRotation:
-        Screen.angleBetween(Screen.primaryOrientation, Screen.orientation)
+    // The window is the ground truth for what the shell did: when it rotates
+    // the card it resizes the surface, and when rotation is locked it does
+    // not - even though the compositor keeps reporting the sensor's
+    // orientation through wl_output. So take portrait/landscape from the
+    // window's own shape and use Screen.orientation only to tell the two
+    // directions of each apart.
+    readonly property bool windowIsPortrait: height >= width
+    readonly property bool primaryIsPortrait:
+        Screen.primaryOrientation === Qt.PortraitOrientation ||
+        Screen.primaryOrientation === Qt.InvertedPortraitOrientation
+    readonly property int screenRotation: {
+        var reported = Screen.angleBetween(Screen.primaryOrientation, Screen.orientation);
+        var reportedIsQuarterTurn = (reported === 90 || reported === 270);
+        var windowIsQuarterTurn = (windowIsPortrait !== primaryIsPortrait);
+        if (reportedIsQuarterTurn === windowIsQuarterTurn)
+            return reported;            // shell and sensor agree
+        return windowIsQuarterTurn ? 90 : 0; // rotation locked: default direction
+    }
     readonly property int sensorRotation: !prefs ? 0 :
-        prefs.position === CameraDevice.FrontFace ? prefs.frontSensorRotation
+        activePosition === CameraDevice.FrontFace ? prefs.frontSensorRotation
                                                   : prefs.backSensorRotation
     readonly property int viewfinderRotation:
         ((sensorRotation - screenRotation) % 360 + 360) % 360
-    onViewfinderRotationChanged: console.log("viewfinder rotation " + viewfinderRotation
+    onViewfinderRotationChanged: console.warn("viewfinder rotation " + viewfinderRotation
         + " (screen " + Screen.orientation + " primary " + Screen.primaryOrientation
         + " -> " + screenRotation + ", sensor " + sensorRotation + ")")
 
@@ -52,11 +68,21 @@ Item {
             return 0;
         var n = 0;
         for (var i = 0; i < devices.videoInputs.length; ++i) {
-            var d = devices.videoInputs[i].description;
-            if (d && d.charAt(0) === "/")
+            if (isRealCamera(devices.videoInputs[i]))
                 ++n;
         }
         return n > 0 ? n : devices.videoInputs.length;
+    }
+
+    // Which side the camera in use actually faces: what the backend says
+    // when it knows (libcamera passes the sensor's location through), else
+    // the switcher's choice. With a single camera the switcher must not
+    // decide this, or "Back" merely un-mirrors the front camera.
+    readonly property int activePosition: {
+        var cam = cameraLoader.item;
+        if (cam && cam.cameraDevice && cam.cameraDevice.position !== CameraDevice.UnspecifiedPosition)
+            return cam.cameraDevice.position;
+        return prefs ? prefs.position : CameraDevice.UnspecifiedPosition;
     }
 
     // See CpuBoost: the PineTab 2 resets on CPU frequency changes under the
@@ -184,6 +210,11 @@ Item {
     // them "rkisp1" entries whose largest format is 32x16 - and marks none of
     // them default, so defaultVideoInput is no use for choosing a side. Skip
     // the ISP nodes and match on position.
+    function isRealCamera(device) {
+        var description = device.description;
+        return !description || !/rkcif|rockchip-cif|rkisp|vicap/i.test(description);
+    }
+
     function pickCameraDevice(mediaDevices, position) {
         if (!mediaDevices)
             return undefined;
@@ -191,6 +222,9 @@ Item {
         var inputs = mediaDevices.videoInputs;
         if (!inputs || inputs.length === 0)
             return undefined;
+        for (var k = 0; k < inputs.length; ++k)
+            console.warn("video input " + k + ": '" + inputs[k].description + "' id=" + inputs[k].id
+                        + " position=" + inputs[k].position + " real=" + isRealCamera(inputs[k]));
 
         // Qt lists the kernel's own capture nodes next to the real cameras:
         // four "rkisp1" entries on the PinePhone Pro, four "rockchip-cif" ones
@@ -200,13 +234,13 @@ Item {
         // allocate - a black viewfinder and "Failed to allocate required
         // memory" from gst_v4l2src_decide_allocation().
         //
-        // A libcamera-backed camera reports its camera id as the description,
-        // which is a device tree path, so keep those and fall back to the whole
-        // list only if there are none.
+        // The raw nodes are named after their driver; everything else is a
+        // real camera (libcamera names its cameras "Internal front camera" or
+        // by device tree path). Fall back to the whole list only if nothing
+        // is left.
         var cameras = [];
         for (var i = 0; i < inputs.length; ++i) {
-            var description = inputs[i].description;
-            if (description && description.charAt(0) === "/")
+            if (isRealCamera(inputs[i]))
                 cameras.push(inputs[i]);
         }
         if (cameras.length === 0)
@@ -509,7 +543,7 @@ Item {
             }
 
             orientation: cameraViewRoot.viewfinderRotation
-            mirrored: prefs && prefs.position === CameraDevice.FrontFace
+            mirrored: cameraViewRoot.activePosition === CameraDevice.FrontFace
         }
 
         PinchArea {
