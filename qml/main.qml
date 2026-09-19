@@ -51,6 +51,7 @@ WebOSWindow {
             id: captureOverlayItem
 
             captureSession: cameraViewItem.captureSessionItem
+            cameraCount: cameraViewItem.cameraCount
             prefs: preferences
 
     //        onGalleryButtonClicked: switcherListView.currentIndex = 2

@@ -1,6 +1,8 @@
 import QtQuick 2.6
 import QtMultimedia
 
+import LunaNext.Common 0.1
+
 import "components"
 
 // The goal of this object is to handle the storage of the settings, and
@@ -26,12 +28,15 @@ QtObject {
     property bool gridEnabled: false
     property bool preferRemovableStorage: false
     property bool playShutterSound: true
-    // How each sensor is mounted, in degrees clockwise relative to the
-    // device held in its natural orientation. libcamera reads this from the
-    // device tree (the Rotation property) but Qt 6.12's gstreamer backend
-    // does not pass it on, so it lives here until it does.
-    property int backSensorRotation: 0
-    property int frontSensorRotation: 0
+    // How each sensor is mounted, in degrees relative to the screen's
+    // native (primary) orientation. libcamera reads this from the device
+    // tree (the Rotation property) but Qt 6.12's gstreamer backend does not
+    // pass it on, so it lives here until it does. Phones (PinePhone Pro) have
+    // their sensors along the portrait-native panel: 0. The PineTab 2 has a
+    // portrait-native panel too, but its sensors are mounted along the long
+    // edge for landscape use, a quarter turn away.
+    property int backSensorRotation: Settings.tabletUi ? 90 : 0
+    property int frontSensorRotation: Settings.tabletUi ? 90 : 0
 
     property ResolutionsListModel photoResolutionOptionsModel: ResolutionsListModel {}
     property ResolutionsListModel videoResolutionOptionsModel: ResolutionsListModel {}

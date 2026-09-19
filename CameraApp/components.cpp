@@ -22,6 +22,7 @@
 #include <QFile>
 #include "components.h"
 #include "advancedcamerasettings.h"
+#include "cpuboost.h"
 #include "fileoperations.h"
 #include "flashled.h"
 #include "foldersmodel.h"
@@ -49,6 +50,7 @@ void Components::registerTypes(const char *uri)
 
     // @uri CameraApp
     qmlRegisterType<AdvancedCameraSettings>(uri, 0, 1, "AdvancedCameraSettings");
+    qmlRegisterType<CpuBoost>(uri, 0, 1, "CpuBoost");
     qmlRegisterType<FileOperations>(uri, 0, 1, "FileOperations");
     qmlRegisterSingletonType<FlashLed>(uri, 0, 1, "FlashLed", FlashLed_singleton_factory);
     qmlRegisterType<FoldersModel>(uri, 0, 1, "FoldersModel");

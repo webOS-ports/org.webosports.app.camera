@@ -1,6 +1,7 @@
 # QML plugin
 set(plugin_SRCS
     components.cpp
+    cpuboost.cpp
     advancedcamerasettings.cpp
     fileoperations.cpp
     flashled.cpp
@@ -12,6 +13,7 @@ set(plugin_SRCS
 
 set(plugin_HDRS
     components.h
+    cpuboost.h
     advancedcamerasettings.h
     fileoperations.h
     flashled.h

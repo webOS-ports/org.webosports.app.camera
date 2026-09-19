@@ -9,6 +9,7 @@ import "components"
 
 Item {
     property CaptureSession captureSession
+    property int cameraCount: 2
 
     property QtObject prefs;
     property int captureTimeout: prefs.selfTimerDelay
@@ -168,6 +169,10 @@ Item {
         anchors.right: parent.right
 
         height: Units.gu(6)
+
+        // Front/Back only makes sense with two cameras; the PineTab 2 has one
+        // wired up at a time, and it is whichever the device tree links.
+        visible: cameraCount > 1
 
         ExclusiveGroup {
             id: exclusiveGroupSide

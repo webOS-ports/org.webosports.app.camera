@@ -40,6 +40,30 @@ Item {
                                                   : prefs.backSensorRotation
     readonly property int viewfinderRotation:
         ((sensorRotation - screenRotation) % 360 + 360) % 360
+    onViewfinderRotationChanged: console.log("viewfinder rotation " + viewfinderRotation
+        + " (screen " + Screen.orientation + " primary " + Screen.primaryOrientation
+        + " -> " + screenRotation + ", sensor " + sensorRotation + ")")
+
+    // How many real cameras there are - the Front/Back switcher is pointless
+    // with one. Counted the same way pickCameraDevice() filters.
+    readonly property int cameraCount: {
+        var devices = mediaDevicesLoader.item;
+        if (!devices || !devices.videoInputs)
+            return 0;
+        var n = 0;
+        for (var i = 0; i < devices.videoInputs.length; ++i) {
+            var d = devices.videoInputs[i].description;
+            if (d && d.charAt(0) === "/")
+                ++n;
+        }
+        return n > 0 ? n : devices.videoInputs.length;
+    }
+
+    // See CpuBoost: the PineTab 2 resets on CPU frequency changes under the
+    // software ISP's load, so the frequency is pinned while a camera runs.
+    CpuBoost {
+        active: cameraLoader.item ? cameraLoader.item.active : false
+    }
 
     function setZoomFactor(value) {
         zoomFactor = Math.max(minimumZoomFactor,
