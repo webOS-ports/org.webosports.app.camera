@@ -1,6 +1,7 @@
 import QtQuick 2.6
 import QtQuick.Window 2.2
 import QtMultimedia
+import QtSensors
 
 import LunaNext.Common 0.1
 
@@ -43,21 +44,51 @@ Item {
     readonly property bool primaryIsPortrait:
         Screen.primaryOrientation === Qt.PortraitOrientation ||
         Screen.primaryOrientation === Qt.InvertedPortraitOrientation
+    // The compositor does not always update wl_output when the shell turns
+    // a card (on the PineTab 2 it keeps reporting portrait), so the direction
+    // within the window's family comes from the orientation sensor itself -
+    // the same one the shell rotates by.
+    OrientationSensor {
+        id: orientationSensor
+        active: true
+        onReadingChanged: console.warn("orientation sensor reading " + reading.orientation)
+        onActiveChanged: console.warn("orientation sensor active=" + active + " backend=" + identifier
+                                      + " connected=" + connectedToBackend + " error=" + error)
+        Component.onCompleted: console.warn("orientation sensor backends: " + QmlSensors.sensorTypes()
+                                            + " chosen=" + identifier + " connected=" + connectedToBackend)
+    }
+    readonly property int deviceRotation: {
+        var o = orientationSensor.reading ? orientationSensor.reading.orientation : 0;
+        switch (o) {
+        case OrientationReading.TopUp:    return 0;
+        case OrientationReading.TopDown:  return 180;
+        case OrientationReading.LeftUp:   return 90;
+        case OrientationReading.RightUp:  return 270;
+        default:                          return -1;   // face up/down or unknown
+        }
+    }
+    property int lastDeviceRotation: 0
+    onDeviceRotationChanged: if (deviceRotation >= 0) lastDeviceRotation = deviceRotation
     readonly property int screenRotation: {
-        var reported = Screen.angleBetween(Screen.primaryOrientation, Screen.orientation);
-        var reportedIsQuarterTurn = (reported === 90 || reported === 270);
         var windowIsQuarterTurn = (windowIsPortrait !== primaryIsPortrait);
-        if (reportedIsQuarterTurn === windowIsQuarterTurn)
-            return reported;            // shell and sensor agree
-        return windowIsQuarterTurn ? 90 : 0; // rotation locked: default direction
+        var candidates = windowIsQuarterTurn ? [ 90, 270 ] : [ 0, 180 ];
+        if (candidates.indexOf(lastDeviceRotation) >= 0)
+            return lastDeviceRotation;
+        var reported = Screen.angleBetween(Screen.primaryOrientation, Screen.orientation);
+        if (candidates.indexOf(reported) >= 0)
+            return reported;
+        return candidates[0];
     }
     readonly property int sensorRotation: !prefs ? 0 :
         activePosition === CameraDevice.FrontFace ? prefs.frontSensorRotation
                                                   : prefs.backSensorRotation
+    // Measured on the PineTab 2: the screen's rotation adds to the sensor's
+    // (subtracting it turned the landscape preview the wrong way).
     readonly property int viewfinderRotation:
-        ((sensorRotation - screenRotation) % 360 + 360) % 360
+        (sensorRotation + screenRotation) % 360
     onViewfinderRotationChanged: console.warn("viewfinder rotation " + viewfinderRotation
-        + " (screen " + Screen.orientation + " primary " + Screen.primaryOrientation
+        + " (window " + (windowIsPortrait ? "portrait" : "landscape")
+        + ", device " + lastDeviceRotation + ", wl_output " + Screen.orientation
         + " -> " + screenRotation + ", sensor " + sensorRotation + ")")
 
     // How many real cameras there are - the Front/Back switcher is pointless
