@@ -84,8 +84,15 @@ Item {
                                                   : prefs.backSensorRotation
     // Measured on the PineTab 2: the screen's rotation adds to the sensor's
     // (subtracting it turned the landscape preview the wrong way).
-    readonly property int viewfinderRotation:
-        (sensorRotation + screenRotation) % 360
+    // A mirrored (front) preview inverts the sense of screen rotation: with the
+    // same '+screenRotation' as the back camera, portrait is right but each
+    // 90 deg turn lands 180 deg out. So subtract the screen rotation when the
+    // active camera is mirrored.
+    readonly property int viewfinderRotation: {
+        var s = (activePosition === CameraDevice.FrontFace) ? -screenRotation
+                                                            : screenRotation;
+        return ((sensorRotation + s) % 360 + 360) % 360;
+    }
     onViewfinderRotationChanged: console.warn("viewfinder rotation " + viewfinderRotation
         + " (window " + (windowIsPortrait ? "portrait" : "landscape")
         + ", device " + lastDeviceRotation + ", wl_output " + Screen.orientation
