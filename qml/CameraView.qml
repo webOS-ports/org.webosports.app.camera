@@ -100,7 +100,17 @@ Item {
 
     // How many real cameras there are - the Front/Back switcher is pointless
     // with one. Counted the same way pickCameraDevice() filters.
+    //
+    // On Halium ask DroidCameraFactory, not MediaDevices. The cameras are
+    // behind the Android HAL and QtMultimedia enumerates none of them, so
+    // videoInputs is empty and this used to evaluate to 0 - which hid the
+    // Front/Back switcher on exactly the devices that have two cameras.
+    // Settings still switched, because that writes prefs.position directly
+    // and never consulted this.
     readonly property int cameraCount: {
+        if (useDroidCamera)
+            return DroidCameraFactory.cameraCount;
+
         var devices = mediaDevicesLoader.item;
         if (!devices || !devices.videoInputs)
             return 0;
