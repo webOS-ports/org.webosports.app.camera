@@ -79,9 +79,38 @@ Item {
             return reported;
         return candidates[0];
     }
-    readonly property int sensorRotation: !prefs ? 0 :
-        activePosition === CameraDevice.FrontFace ? prefs.frontSensorRotation
-                                                  : prefs.backSensorRotation
+    // CameraInfo looks the sensor up by its device-tree path. Qt's
+    // QCameraDevice.id is only a numeric index here; the device-tree path
+    // (e.g. "/base/i2c@ff110000/camera@36") is carried in the description.
+    readonly property string activeCameraId: {
+        var cam = cameraLoader.item;
+        if (!cam || !cam.cameraDevice)
+            return "";
+        var d = cam.cameraDevice.description ? "" + cam.cameraDevice.description : "";
+        if (d.indexOf("/") === 0)
+            return d;
+        // Fall back to the id if the description is not a path.
+        return cam.cameraDevice.id ? "" + cam.cameraDevice.id : "";
+    }
+    // How the active sensor is mounted, in degrees. Prefer what the board
+    // declares in its device tree (LuneOS.Camera CameraInfo reads the sensor's
+    // "rotation" property, the same value libcamera uses) - correct on every
+    // device with no per-app, per-form-factor hardcoding. Only when the device
+    // tree declares none (e.g. the PineTab 2, whose rotation has not been added
+    // to its DT yet) fall back to the measured default in PreferencesModel.
+    readonly property int sensorRotation: {
+        if (!prefs)
+            return 0;
+        var dt = activeCameraId ? CameraInfo.rotation(activeCameraId) : -1;
+        if (dt >= 0)
+            // The device tree gives the sensor's mounting as a clockwise angle
+            // (the libcamera/V4L2 convention); the viewfinder rotates the other
+            // way, so negate it. Measured on the PinePhone Pro: applying the raw
+            // 270/90 left both previews 180 deg out.
+            return (360 - dt) % 360;
+        return activePosition === CameraDevice.FrontFace ? prefs.frontSensorRotation
+                                                         : prefs.backSensorRotation;
+    }
     // Measured on the PineTab 2: the screen's rotation adds to the sensor's
     // (subtracting it turned the landscape preview the wrong way).
     // A mirrored (front) preview inverts the sense of screen rotation: with the

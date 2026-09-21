@@ -28,14 +28,16 @@ QtObject {
     property bool gridEnabled: false
     property bool preferRemovableStorage: false
     property bool playShutterSound: true
-    // How each sensor is mounted, in degrees relative to the screen's
-    // native (primary) orientation. libcamera reads this from the device
-    // tree (the Rotation property) but Qt 6.12's gstreamer backend does not
-    // pass it on, so it lives here until it does. Phones (PinePhone Pro) have
-    // their sensors along the portrait-native panel: 0. The PineTab 2 has a
-    // portrait-native panel too, but its sensors are mounted along the long
-    // edge for landscape use, a quarter turn away (270: 90 shows the image
-    // upside down).
+    // Fallback mounting rotation, in degrees relative to the screen's native
+    // (primary) orientation, used ONLY when the device tree does not declare a
+    // per-sensor "rotation". The real value now comes from the board itself:
+    // CameraView reads LuneOS.Camera CameraInfo.rotation(cameraId), the same
+    // device-tree property libcamera uses, so devices that declare it (e.g. the
+    // PinePhone Pro: rear 270, front 90) are correct with no hardcoding here.
+    // The PineTab 2's sensors do not yet carry a DT rotation; they are mounted
+    // along the long edge for landscape use, a quarter turn away, hence 270
+    // (90 showed the image upside down). Once measured and added to the PT2 DT
+    // these fallbacks can go.
     property int backSensorRotation: Settings.tabletUi ? 270 : 0
     property int frontSensorRotation: Settings.tabletUi ? 270 : 0
 
