@@ -1,8 +1,10 @@
 # QML plugin
 set(plugin_SRCS
     components.cpp
+    cpuboost.cpp
     advancedcamerasettings.cpp
     fileoperations.cpp
+    flashled.cpp
     foldersmodel.cpp
     pieslice.cpp
     storagemonitor.cpp
@@ -11,8 +13,10 @@ set(plugin_SRCS
 
 set(plugin_HDRS
     components.h
+    cpuboost.h
     advancedcamerasettings.h
     fileoperations.h
+    flashled.h
     foldersmodel.h
     pieslice.h
     storagemonitor.h

@@ -1,6 +1,8 @@
 import QtQuick 2.6
 import QtMultimedia
 
+import LunaNext.Common 0.1
+
 import "components"
 
 // The goal of this object is to handle the storage of the settings, and
@@ -26,6 +28,18 @@ QtObject {
     property bool gridEnabled: false
     property bool preferRemovableStorage: false
     property bool playShutterSound: true
+    // Fallback mounting rotation, in degrees relative to the screen's native
+    // (primary) orientation, used ONLY when the device tree does not declare a
+    // per-sensor "rotation". The real value now comes from the board itself:
+    // CameraView reads LuneOS.Camera CameraInfo.rotation(cameraId), the same
+    // device-tree property libcamera uses, so devices that declare it (e.g. the
+    // PinePhone Pro: rear 270, front 90) are correct with no hardcoding here.
+    // The PineTab 2's sensors do not yet carry a DT rotation; they are mounted
+    // along the long edge for landscape use, a quarter turn away, hence 270
+    // (90 showed the image upside down). Once measured and added to the PT2 DT
+    // these fallbacks can go.
+    property int backSensorRotation: Settings.tabletUi ? 270 : 0
+    property int frontSensorRotation: Settings.tabletUi ? 270 : 0
 
     property ResolutionsListModel photoResolutionOptionsModel: ResolutionsListModel {}
     property ResolutionsListModel videoResolutionOptionsModel: ResolutionsListModel {}
