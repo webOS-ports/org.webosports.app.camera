@@ -1,0 +1,26 @@
+{
+    "org.webosports.app.camera": [
+        "killswitch.query",
+        "application.operation",
+        "settings.query",
+        "systemsettings.query",
+        "media.operation",
+        "image.management"
+    ],
+    "org.webosports.app.camera-*": [
+        "killswitch.query",
+        "application.operation",
+        "settings.query",
+        "systemsettings.query",
+        "media.operation",
+        "image.management"
+    ],
+    "org.webosports.app.camera*": [
+        "killswitch.query",
+        "application.operation",
+        "settings.query",
+        "systemsettings.query",
+        "media.operation",
+        "image.management"
+    ]
+}

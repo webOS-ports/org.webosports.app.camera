@@ -47,6 +47,10 @@ WebOSWindow {
         width: parent.width
         height: parent.height
 
+        /* Nothing to drive while the camera is off, and a shutter button
+         * showing through the notice just looks broken. */
+        visible: !killSwitchNotice.blocked
+
         CaptureOverlay {
             id: captureOverlayItem
 
@@ -62,5 +66,18 @@ WebOSWindow {
 
             prefs: preferences
         }
+    }
+
+    /* Last, so it covers the viewfinder and the capture controls alike. */
+    /*
+     * No attempt to re-open the camera when the switch is released. The app
+     * cannot rebuild a live preview from a second source at all - the
+     * front/back switcher freezes on the last frame in exactly the same way,
+     * with the kill switch untouched - so anything here would be inheriting a
+     * separate, pre-existing bug rather than fixing one. The camera returns on
+     * the next launch; the notice disappearing is honest about the switch.
+     */
+    KillSwitchNotice {
+        id: killSwitchNotice
     }
 }
