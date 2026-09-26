@@ -358,6 +358,48 @@ Item {
             attachDroidCamera();
     }
 
+    /*
+     * Re-open the camera after the HAL has been taken away and given back.
+     *
+     * The privacy switch stops camerahalserver, and the source the app was
+     * using does not survive that, so something has to ask for a new one.
+     * attachDroidCamera() is enough on its own - verified on device with a
+     * headless harness that runs this exact sequence on the real display
+     * path and samples the rendered picture: first attach and two re-attaches
+     * all produced a live, changing image.
+     *
+     * Retried only because releasing the switch merely asks init to start
+     * camerahalserver, which is not ready the instant the sysfs attribute
+     * flips; the first attach can simply be too early.
+     */
+    function reopenCamera() {
+        if (useDroidCamera) {
+            droidReopenTimer.attempts = 0;
+            attachDroidCamera();
+            droidReopenTimer.restart();
+        } else if (cameraLoader.item) {
+            cameraLoader.item.active = false;
+            cameraLoader.item.active = true;
+        }
+    }
+
+    Timer {
+        id: droidReopenTimer
+        interval: 900
+        repeat: true
+        property int attempts: 0
+        onTriggered: {
+            /* Counted rather than conditioned on nativeVideoSource, which is
+             * non-null whether or not the new source is producing anything. */
+            attempts++;
+            if (attempts > 2) {
+                stop();
+                return;
+            }
+            cameraViewRoot.attachDroidCamera();
+        }
+    }
+
     Connections {
         target: DroidCameraFactory
         enabled: cameraViewRoot.useDroidCamera

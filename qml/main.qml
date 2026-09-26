@@ -47,6 +47,10 @@ WebOSWindow {
         width: parent.width
         height: parent.height
 
+        /* Nothing to drive while the camera is off, and a shutter button
+         * showing through the notice just looks broken. */
+        visible: !killSwitchNotice.blocked
+
         CaptureOverlay {
             id: captureOverlayItem
 
@@ -61,6 +65,18 @@ WebOSWindow {
             id: preferencesOverlay
 
             prefs: preferences
+        }
+    }
+
+    /* Last, so it covers the viewfinder and the capture controls alike. */
+    KillSwitchNotice {
+        id: killSwitchNotice
+
+        /* The HAL is stopped while the switch is on and the camera source does
+         * not survive it, so ask for a fresh one once it is released. */
+        onBlockedChanged: {
+            if (!blocked)
+                cameraViewItem.reopenCamera();
         }
     }
 }
