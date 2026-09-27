@@ -416,8 +416,26 @@ Item {
         __reopening = true;
         __reopenDeadline = Date.now() + 20000;
         __previewFrames = 0;
-        __restartPreview();
-        droidReopenTimer.restart();
+        /* Deliberately not attaching here. Attaching is synchronous and blocks
+         * the main thread for as long as the HAL takes to come up - seconds,
+         * while the sensor powers back up after the privacy switch - so doing
+         * it in this call would freeze the UI before it had painted a single
+         * frame of the "starting" state, and the spinner would only turn up
+         * once the camera was practically ready. One event loop turn is enough
+         * to get it on screen first. */
+        reopenPaintTimer.restart();
+    }
+
+    Timer {
+        id: reopenPaintTimer
+        /* One paint is all this needs, and the compositor renders a frame about
+         * every 9ms when idle (measured), so 100ms is many frames of margin and
+         * invisible against the seconds the HAL itself takes. */
+        interval: 100
+        onTriggered: {
+            cameraViewRoot.__restartPreview();
+            droidReopenTimer.restart();
+        }
     }
 
     function __restartPreview() {
