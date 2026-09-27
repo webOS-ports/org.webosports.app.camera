@@ -378,12 +378,33 @@ Item {
      */
     property int __previewFrames: 0
 
+    /* True from the moment a reopen is asked for until frames are actually
+     * flowing again, so the UI can say the camera is starting rather than
+     * leaving the user in front of a black rectangle wondering whether the
+     * switch did anything. The camera hardware is powered down while the
+     * switch is on, so the HAL has to re-probe the sensor on release and that
+     * is not quick - measured well past the point where a user assumes it is
+     * broken. */
+    readonly property bool previewStarting: __reopening
+    property bool __reopening: false
+    property double __reopenDeadline: 0
+
     Connections {
         // videoSink is null until the scene graph has built the VideoOutput,
         // so the handler cannot be matched against a target yet at creation.
         ignoreUnknownSignals: true
         target: videoOutputView.videoSink
-        function onVideoFrameChanged(frame) { cameraViewRoot.__previewFrames++ }
+        function onVideoFrameChanged(frame) {
+            cameraViewRoot.__previewFrames++;
+            /* Clear the starting state here rather than on the retry timer's
+             * next tick: the picture is on screen the moment frames arrive, and
+             * waiting for the tick left the overlay covering a working
+             * viewfinder for up to another 1.5s. */
+            if (cameraViewRoot.__reopening && cameraViewRoot.__previewFrames > 2) {
+                droidReopenTimer.stop();
+                cameraViewRoot.__reopening = false;
+            }
+        }
     }
 
     function __rebuildSession() {
@@ -392,12 +413,17 @@ Item {
     }
 
     function reopenCamera() {
+        __reopening = true;
+        __reopenDeadline = Date.now() + 20000;
+        __previewFrames = 0;
+        __restartPreview();
+        droidReopenTimer.restart();
+    }
+
+    function __restartPreview() {
         if (useDroidCamera) {
-            droidReopenTimer.attempts = 0;
-            cameraViewRoot.__previewFrames = 0;
             __rebuildSession();
             attachDroidCamera();
-            droidReopenTimer.restart();
         } else if (cameraLoader.item) {
             cameraLoader.item.active = false;
             cameraLoader.item.active = true;
@@ -408,22 +434,25 @@ Item {
         id: droidReopenTimer
         interval: 1500
         repeat: true
-        property int attempts: 0
         onTriggered: {
             // Frames are coming in - the preview is live, leave it alone.
             if (cameraViewRoot.__previewFrames > 2) {
                 stop();
+                cameraViewRoot.__reopening = false;
                 return;
             }
-            attempts++;
-            if (attempts > 3) {
+            /* Bounded by a deadline rather than by a number of attempts: how
+             * long the HAL needs is a property of the hardware, not of how
+             * many times we have asked, and a fixed three attempts gave up
+             * while the sensor was still powering up. */
+            if (Date.now() > cameraViewRoot.__reopenDeadline) {
                 stop();
+                cameraViewRoot.__reopening = false;
                 console.warn("camera did not come back after the privacy switch was released");
                 return;
             }
             cameraViewRoot.__previewFrames = 0;
-            cameraViewRoot.__rebuildSession();
-            cameraViewRoot.attachDroidCamera();
+            cameraViewRoot.__restartPreview();
         }
     }
 

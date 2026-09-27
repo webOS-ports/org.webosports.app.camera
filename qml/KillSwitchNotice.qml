@@ -35,10 +35,17 @@ Item {
     id: notice
 
     anchors.fill: parent
-    visible: blocked
+    visible: blocked || preparing
     z: 1000
 
     property bool blocked: false
+
+    /* Stays up after the switch is released, while the camera hardware powers
+     * back up. Releasing the switch does not give an instant picture: the
+     * sensor was unpowered, so the HAL has to re-probe it, and on the FLX1s
+     * that takes long enough that a black viewfinder reads as a broken app.
+     * Nothing was telling the user it was working on it. */
+    property bool preparing: false
 
     LunaService {
         id: killSwitchService
@@ -98,13 +105,52 @@ Item {
         spacing: Math.round(notice.height * 0.03)
         width: parent.width * 0.8
 
-        Image {
+        Item {
             anchors.horizontalCenter: parent.horizontalCenter
-            source: "images/camera-blocked.png"
             width: Math.round(Math.min(notice.width, notice.height) * 0.22)
             height: width
-            fillMode: Image.PreserveAspectFit
-            mipmap: true
+
+            Image {
+                anchors.fill: parent
+                source: "images/camera-blocked.png"
+                fillMode: Image.PreserveAspectFit
+                mipmap: true
+                visible: notice.blocked
+            }
+
+            /* Built from primitives rather than a BusyIndicator: the app cannot
+             * count on QtQuick.Controls being installed on every LuneOS image,
+             * and this needs no artwork. */
+            Item {
+                id: spinner
+
+                anchors.fill: parent
+                visible: !notice.blocked
+
+                Repeater {
+                    model: 12
+
+                    Rectangle {
+                        readonly property real angle: index * 30 * Math.PI / 180
+
+                        width: Math.max(2, Math.round(spinner.width * 0.075))
+                        height: width
+                        radius: width / 2
+                        color: "white"
+                        opacity: 0.15 + 0.85 * (index / 12)
+                        x: spinner.width / 2 - width / 2 + Math.sin(angle) * spinner.width * 0.4
+                        y: spinner.height / 2 - height / 2 - Math.cos(angle) * spinner.height * 0.4
+                    }
+                }
+
+                RotationAnimator on rotation {
+                    running: spinner.visible
+                    loops: Animation.Infinite
+                    from: 0
+                    to: 360
+                    duration: 1200
+                }
+            }
         }
 
         Text {
@@ -115,7 +161,7 @@ Item {
             color: "white"
             font.pixelSize: Math.round(notice.height * 0.032)
             font.bold: true
-            text: qsTr("Camera turned off")
+            text: notice.blocked ? qsTr("Camera turned off") : qsTr("Starting camera")
         }
 
         Text {
@@ -125,7 +171,9 @@ Item {
             wrapMode: Text.WordWrap
             color: "#cccccc"
             font.pixelSize: Math.round(notice.height * 0.022)
-            text: qsTr("The hardware privacy switch is on. Flip it back to use the camera.")
+            text: notice.blocked
+                  ? qsTr("The hardware privacy switch is on. Flip it back to use the camera.")
+                  : qsTr("The camera is powering back up. This takes a few seconds.")
         }
     }
 

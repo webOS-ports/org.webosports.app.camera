@@ -72,6 +72,11 @@ WebOSWindow {
     KillSwitchNotice {
         id: killSwitchNotice
 
+        /* Keep covering the viewfinder until frames are actually flowing, so
+         * the notice hands straight over to "starting" instead of uncovering a
+         * black rectangle. */
+        preparing: cameraViewItem.previewStarting
+
         /* The HAL is stopped while the switch is on and the camera source does
          * not survive it, so ask for a fresh one once it is released. */
         onBlockedChanged: {
