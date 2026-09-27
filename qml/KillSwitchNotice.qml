@@ -117,8 +117,17 @@ Item {
         color: "black"
     }
 
+    /*
+     * Below centre, not centred. The shell shows its own switch alert dead
+     * centre for a couple of seconds whenever a switch moves, and this notice
+     * appears at exactly that moment - centred, the alert's glyph landed across
+     * this heading and the screen showed two camera icons on top of each other.
+     * Leaving the middle free is this side's job: the alert is system-wide and
+     * sits where legacy webOS has always put it.
+     */
     Column {
-        anchors.centerIn: parent
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: Math.round(notice.height * 0.56)
         spacing: Math.round(notice.height * 0.03)
         width: parent.width * 0.8
 
