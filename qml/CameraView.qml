@@ -17,7 +17,7 @@ Item {
     signal galleryButtonClicked();
 
     property PreferencesModel prefs;
-    property alias captureSessionItem: captureSession
+    readonly property var captureSessionItem: captureSessionLoader.item
 
     // Digital zoom. Qt's gstreamer camera backend never implements
     // setZoomFactor() - QPlatformCamera's default is a no-op and the gstreamer
@@ -343,12 +343,15 @@ Item {
     function attachDroidCamera() {
         // Release the previous camera before opening the other sensor:
         // some HALs will not run both simultaneously.
-        if (captureSession.nativeVideoSource)
-            captureSession.nativeVideoSource.stop();
+        var sess = captureSessionLoader.item;
+        if (!sess)
+            return;
+        if (sess.nativeVideoSource)
+            sess.nativeVideoSource.stop();
         var source = DroidCameraFactory.createVideoSource(droidCameraDevice);
         if (source) {
-            captureSession.camera = null;
-            captureSession.nativeVideoSource = source;
+            sess.camera = null;
+            sess.nativeVideoSource = source;
             source.start();
         }
     }
@@ -363,18 +366,36 @@ Item {
      *
      * The privacy switch stops camerahalserver, and the source the app was
      * using does not survive that, so something has to ask for a new one.
-     * attachDroidCamera() is enough on its own - verified on device with a
-     * headless harness that runs this exact sequence on the real display
-     * path and samples the rendered picture: first attach and two re-attaches
-     * all produced a live, changing image.
+     * One attachDroidCamera() is normally enough.
      *
-     * Retried only because releasing the switch merely asks init to start
-     * camerahalserver, which is not ready the instant the sysfs attribute
-     * flips; the first attach can simply be too early.
+     * The retry is deliberately conditioned on frames actually arriving, not
+     * on a timer alone. Re-attaching blindly is not free: each attach tears
+     * down the source the previous one just built and pays another HAL
+     * startup, so a preview that was already coming up gets interrupted -
+     * measured on device at 4.4 fps through a blind retry storm against
+     * 11 fps for a single attach, which looks like a camera that takes for
+     * ever and then shows one frame.
      */
+    property int __previewFrames: 0
+
+    Connections {
+        // videoSink is null until the scene graph has built the VideoOutput,
+        // so the handler cannot be matched against a target yet at creation.
+        ignoreUnknownSignals: true
+        target: videoOutputView.videoSink
+        function onVideoFrameChanged(frame) { cameraViewRoot.__previewFrames++ }
+    }
+
+    function __rebuildSession() {
+        captureSessionLoader.sourceComponent = null;
+        captureSessionLoader.sourceComponent = captureSessionComponent;
+    }
+
     function reopenCamera() {
         if (useDroidCamera) {
             droidReopenTimer.attempts = 0;
+            cameraViewRoot.__previewFrames = 0;
+            __rebuildSession();
             attachDroidCamera();
             droidReopenTimer.restart();
         } else if (cameraLoader.item) {
@@ -385,17 +406,23 @@ Item {
 
     Timer {
         id: droidReopenTimer
-        interval: 900
+        interval: 1500
         repeat: true
         property int attempts: 0
         onTriggered: {
-            /* Counted rather than conditioned on nativeVideoSource, which is
-             * non-null whether or not the new source is producing anything. */
-            attempts++;
-            if (attempts > 2) {
+            // Frames are coming in - the preview is live, leave it alone.
+            if (cameraViewRoot.__previewFrames > 2) {
                 stop();
                 return;
             }
+            attempts++;
+            if (attempts > 3) {
+                stop();
+                console.warn("camera did not come back after the privacy switch was released");
+                return;
+            }
+            cameraViewRoot.__previewFrames = 0;
+            cameraViewRoot.__rebuildSession();
             cameraViewRoot.attachDroidCamera();
         }
     }
@@ -539,7 +566,7 @@ Item {
             exposureMode: Camera.ExposureAuto
 
             property AdvancedCameraSettings advanced: AdvancedCameraSettings {
-                captureSession: captureSession
+                captureSession: captureSessionLoader.item
                 hdrEnabled: prefs.hdrEnabled
                 encodingQuality: prefs.encodingQuality
                 /*
@@ -589,54 +616,81 @@ Item {
        }
     }
 
-    CaptureSession {
-        id: captureSession
-        camera: cameraLoader.item
-        imageCapture: ImageCapture {
-            id: imageCapture
+    /*
+     * The session lives in a Component so it can be rebuilt, which is the only
+     * way to recover the preview after the camera HAL has been restarted.
+     *
+     * Measured on device with a harness that stops and starts camerahalserver
+     * underneath a running source, exactly as the privacy switch does:
+     * re-attaching a new source alone leaves the viewfinder on a single frame,
+     * and detaching/re-attaching videoOutput does not help either. Qt's
+     * QGstreamerMediaCaptureSession loses track of whether it has added
+     * videoTee and videoOutput to its pipeline - it then logs
+     * "Element 'videoTee' is not in bin" and never re-adds them, so the new
+     * source pushes frames into a pipeline with no path to the sink. Building
+     * a fresh session gets a fresh pipeline; measured live again in ~0.9s.
+     *
+     * The VideoOutput deliberately stays outside, so the zoom, rotation and
+     * mirroring bindings on it survive a rebuild.
+     */
+    Component {
+        id: captureSessionComponent
 
-            // resolution: prefs.photoResolutionOptionsModel.getAsSize(prefs.photoResolutionIndex)
+        CaptureSession {
+            id: captureSession
+            camera: cameraLoader.item
+            imageCapture: ImageCapture {
+                id: imageCapture
 
-            onResolutionChanged: {
-                // FIXME: this is a necessary workaround because:
-                // - Neither camera.viewfinder.resolution nor camera.advanced.resolution
-                //   emit a changed signal when the underlying AalViewfinderSettingsControl's
-                //   resolution changes
-                // - we know that qtubuntu-camera changes the resolution of the
-                //   viewfinder automatically when the capture resolution is set
-                // - we need camera.viewfinder.resolution to hold the right
-                //   value
-                camera.viewfinder.resolution = camera.advanced.resolution;
+                // resolution: prefs.photoResolutionOptionsModel.getAsSize(prefs.photoResolutionIndex)
+
+                onResolutionChanged: {
+                    // FIXME: this is a necessary workaround because:
+                    // - Neither camera.viewfinder.resolution nor camera.advanced.resolution
+                    //   emit a changed signal when the underlying AalViewfinderSettingsControl's
+                    //   resolution changes
+                    // - we know that qtubuntu-camera changes the resolution of the
+                    //   viewfinder automatically when the capture resolution is set
+                    // - we need camera.viewfinder.resolution to hold the right
+                    //   value
+                    camera.viewfinder.resolution = camera.advanced.resolution;
+                }
+
+                onImageCaptured: (requestId, previewImage) => {
+                    cameraViewRoot.imageCaptured(previewImage)
+                }
+                onImageSaved: (requestId, path) => {
+                    FlashLed.on = false;
+                    cameraViewRoot.captureDone(path);
+                }
+                onErrorOccurred: (requestId, error, message) => {
+                    FlashLed.on = false;
+                }
             }
 
-            onImageCaptured: (requestId, previewImage) => {
-                cameraViewRoot.imageCaptured(previewImage)
+            recorder: MediaRecorder {
+                id: recorder
+
+                outputLocation: StorageLocations.videosLocation;
+
+                /* TODO
+                resolution: prefs.videoResolutionOptionsModel.getAsSize(prefs.videoResolutionIndex)
+
+                onResolutionChanged: {
+                    // FIXME: see workaround setting camera.viewfinder.resolution above
+                    camera.viewfinder.resolution = camera.advanced.resolution;
+                }
+                */
             }
-            onImageSaved: (requestId, path) => {
-                FlashLed.on = false;
-                cameraViewRoot.captureDone(path);
-            }
-            onErrorOccurred: (requestId, error, message) => {
-                FlashLed.on = false;
-            }
+            videoOutput: videoOutputView
         }
-
-        recorder: MediaRecorder {
-            id: recorder
-
-            outputLocation: StorageLocations.videosLocation;
-
-            /* TODO
-            resolution: prefs.videoResolutionOptionsModel.getAsSize(prefs.videoResolutionIndex)
-
-            onResolutionChanged: {
-                // FIXME: see workaround setting camera.viewfinder.resolution above
-                camera.viewfinder.resolution = camera.advanced.resolution;
-            }
-            */
-        }
-        videoOutput: videoOutputView
     }
+
+    Loader {
+        id: captureSessionLoader
+        sourceComponent: captureSessionComponent
+    }
+
 
     Item {
         id: viewfinder
