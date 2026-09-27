@@ -42,10 +42,16 @@ Item {
 
     /* Stays up after the switch is released, while the camera hardware powers
      * back up. Releasing the switch does not give an instant picture: the
-     * sensor was unpowered, so the HAL has to re-probe it, and on the FLX1s
-     * that takes long enough that a black viewfinder reads as a broken app.
-     * Nothing was telling the user it was working on it. */
+     * sensor was unpowered, so the HAL cannot open it for several seconds, and
+     * on the FLX1s that takes long enough that a black viewfinder reads as a
+     * broken app. Nothing was telling the user it was working on it. */
     property bool preparing: false
+
+    /* The service says the switch has moved but the hardware is not ready yet.
+     * Attaching in this window blocks inside the HAL for as long as the sensor
+     * takes, which freezes the UI - the spinner included - so the app waits
+     * here instead and lets the service do the waiting in its own process. */
+    property bool hardwarePending: false
 
     LunaService {
         id: killSwitchService
@@ -64,6 +70,7 @@ Item {
             /* No service, no claim. A device with no switches must not have the
              * camera app permanently telling it the camera is blocked. */
             notice.blocked = false;
+            notice.hardwarePending = false;
             return;
         }
 
@@ -78,19 +85,29 @@ Item {
             return;
 
         var anyBlocked = false;
+        var anyPending = false;
         for (var i = 0; i < payload.switches.length; i++) {
             var entry = payload.switches[i];
-            if (entry.state !== "blocked")
+            if (entry.id !== "camera" && entry.id !== "camera-front" && entry.id !== "camera-rear")
                 continue;
-            if (entry.id === "camera" || entry.id === "camera-front" || entry.id === "camera-rear")
+            if (entry.state === "blocked")
                 anyBlocked = true;
+            if (entry.actionPending === true)
+                anyPending = true;
         }
+        /* Pending first, deliberately. These are two property writes from one
+         * message, and the release message carries both "not blocked" and "not
+         * ready yet". Setting blocked first would fire its handler while
+         * hardwarePending still read false, and the app would attach in exactly
+         * the window this field exists to describe. */
+        notice.hardwarePending = anyPending;
         notice.blocked = anyBlocked;
     }
 
     function handleError(message) {
         console.log("KillSwitchNotice: " + message.payload);
         notice.blocked = false;
+        notice.hardwarePending = false;
     }
 
     /* Fully opaque: at 0.85 the shutter and mode buttons showed through as
