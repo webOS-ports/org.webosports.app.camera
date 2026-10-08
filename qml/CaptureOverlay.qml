@@ -10,6 +10,8 @@ import "components"
 Item {
     property CaptureSession captureSession
     property int cameraCount: 2
+    // Clockwise turn a recording needs to show upright; see CameraView.recordingRotation.
+    property int recordingRotation: 0
 
     property QtObject prefs;
     property int captureTimeout: prefs.selfTimerDelay
@@ -33,7 +35,7 @@ Item {
                 if (DroidCameraFactory.recording)
                     DroidCameraFactory.stopRecording();
                 else
-                    DroidCameraFactory.startRecording(videoPath);
+                    DroidCameraFactory.startRecording(videoPath, recordingRotation);
             } else if (captureSession.recorder) {
                 if (captureSession.recorder.recorderState === MediaRecorder.RecordingState) {
                     captureSession.recorder.stop();

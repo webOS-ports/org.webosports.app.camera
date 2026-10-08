@@ -122,6 +122,12 @@ Item {
                                                             : screenRotation;
         return ((sensorRotation + s) % 360 + 360) % 360;
     }
+    // How far a player has to turn a recording, clockwise, to show it the way the viewfinder
+    // does. VideoOutput's orientation turns counter-clockwise (measured on the HP TouchPad: an
+    // orientation of 270 shows upright what a 90 degree clockwise turn of the recorded frame
+    // does), and it mirrors after rotating, so the unmirrored recording of the front camera
+    // needs the same turn.
+    readonly property int recordingRotation: (360 - viewfinderRotation) % 360
     onViewfinderRotationChanged: console.warn("viewfinder rotation " + viewfinderRotation
         + " (window " + (windowIsPortrait ? "portrait" : "landscape")
         + ", device " + lastDeviceRotation + ", wl_output " + Screen.orientation

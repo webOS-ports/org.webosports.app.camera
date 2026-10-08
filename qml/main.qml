@@ -56,6 +56,7 @@ WebOSWindow {
 
             captureSession: cameraViewItem.captureSessionItem
             cameraCount: cameraViewItem.cameraCount
+            recordingRotation: cameraViewItem.recordingRotation
             prefs: preferences
 
     //        onGalleryButtonClicked: switcherListView.currentIndex = 2
