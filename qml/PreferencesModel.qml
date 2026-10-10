@@ -1,13 +1,20 @@
 import QtQuick 2.6
+import QtCore
 import QtMultimedia
 
-import LunaNext.Common 0.1
+// Qualified: QtCore has a Settings type of its own, which this file is.
+import LunaNext.Common 0.1 as Common
 
-import "components"
-
-// The goal of this object is to handle the storage of the settings, and
-// keep them in sync with the camera state
-QtObject {
+/*
+ * The camera's preferences, kept across launches.
+ *
+ * Mode values (flash, focus, white balance, scene, colour effect, flicker) are
+ * the names LuneOS.Camera's DroidCameraFactory uses - the Android camera
+ * parameter values - so they bind to it as they are. A value the camera in use
+ * does not support is kept and simply not applied; the preferences page only
+ * offers what it supports.
+ */
+Settings {
     id: settings
 
     enum CaptureMode {
@@ -15,19 +22,36 @@ QtObject {
         CaptureVideo
     }
 
+    // Not a QSettings organisation/application pair: the QML runner is shared
+    // by every QML app, so the file is named explicitly.
+    location: StandardPaths.writableLocation(StandardPaths.GenericConfigLocation)
+              + "/org.webosports.app.camera/preferences.ini"
+    category: "camera"
+
     property int position: CameraDevice.BackFace
+    /* Which HAL camera to use, for phones with more than one on a side
+     * (ultra-wide, tele). -1: the HAL's first camera facing that way. */
+    property int droidCameraIndex: -1
     property int captureMode: PreferencesModel.CaptureStillImage
-    property int flashMode: Camera.FlashAuto
-    property int videoFlashMode: Camera.FlashOff
-    property bool gpsEnabled: false
+
+    property string flashMode: "auto"
+    property bool videoLight: false
+    property string focusMode: "continuous"
+    property string whiteBalanceMode: "auto"
+    property string sceneMode: "auto"
+    property string colorTone: "none"
+    property string flickerMode: "auto"
+    property int isoSpeed: 0
+    property real exposureCompensation: 0
     property bool hdrEnabled: false
+    property bool zslEnabled: true
+
     property int selfTimerDelay: 0
-    property int photoResolutionIndex: 0
-    property int videoResolutionIndex: 0
-    property int encodingQuality: 2 // QMultimedia.NormalQuality
     property bool gridEnabled: false
-    property bool preferRemovableStorage: false
     property bool playShutterSound: true
+    property bool gpsEnabled: false
+    property bool scanCodes: true
+
     // Fallback mounting rotation, in degrees relative to the screen's native
     // (primary) orientation, used ONLY when the device tree does not declare a
     // per-sensor "rotation". The real value now comes from the board itself:
@@ -38,94 +62,11 @@ QtObject {
     // along the long edge for landscape use, a quarter turn away, hence 270
     // (90 showed the image upside down). Once measured and added to the PT2 DT
     // these fallbacks can go.
-    property int backSensorRotation: Settings.tabletUi ? 270 : 0
-    property int frontSensorRotation: Settings.tabletUi ? 270 : 0
+    readonly property int backSensorRotation: Common.Settings.tabletUi ? 270 : 0
+    readonly property int frontSensorRotation: Common.Settings.tabletUi ? 270 : 0
 
-    property ResolutionsListModel photoResolutionOptionsModel: ResolutionsListModel {}
-    property ResolutionsListModel videoResolutionOptionsModel: ResolutionsListModel {}
-
-    onFlashModeChanged: if (flashMode != Camera.FlashOff) hdrEnabled = false;
-    onHdrEnabledChanged: if (hdrEnabled) flashMode = Camera.FlashOff
-
-    function getAutomaticResolutionIndex(fittingResolution, maximumResolution) {
-        var fittingResolutionIndex = photoResolutionOptionsModel.indexOf(fittingResolution);
-        if (fittingResolutionIndex >= 0) {
-            return fittingResolutionIndex;
-        } else {
-            return photoResolutionOptionsModel.indexOf(maximumResolution);
-        }
-    }
-
-    function isWellKnown(resolution) {
-        // Try to only display well known resolutions: 1080p, 720p and 480p
-        return ( resolution === Qt.size(1920,1080) ||
-                 resolution === Qt.size(1280,720)  ||
-                 resolution === Qt.size(640,480) );
-    }
-
-    function updateVideoResolutionOptions(videoSupportedResolutions) {
-        // Remember what was the resolution before the update
-        var previousVideoResolution = videoResolutionOptionsModel.get(settings.videoResolutionIndex);
-
-        // Clear and refill videoResolutionOptionsModel with available resolutions
-        videoResolutionOptionsModel.clear();
-        var supported = videoSupportedResolutions;
-
-        supported = supported.slice().sort(function(a, b) {
-            return a.width - b.width;
-        });
-
-        var foundCurrentResolution = -1;
-        for (var i=0; i<supported.length; i++) {
-            if (isWellKnown(supported[i])) {
-                videoResolutionOptionsModel.insertSize(0, supported[i]);
-                if(previousVideoResolution === supported[i]) foundCurrentResolution = i;
-            }
-        }
-
-        // If resolution setting chosen is not supported select the highest available resolution
-        if (supported.length > 0 && foundCurrentResolution < 0) {
-            settings.videoResolutionIndex = supported.count - 1;
-        }
-
-        videoResolutionOptionsModel.modelChanged();
-    }
-
-    function updatePhotoResolutionOptions(maximumResolution, fittingResolution) {
-        // Remember what was the resolution before the update
-        var previousPhotoResolution = photoResolutionOptionsModel.get(settings.photoResolutionIndex);
-
-        // Clear and refill photoResolutionOptionsModel with available resolutions
-        photoResolutionOptionsModel.clear();
-/*
-        var optionMaximum = {"icon": "",
-                             "label": "%1 (%2MP)".arg(sizeToAspectRatio(maximumResolution))
-                                                 .arg(sizeToMegapixels(maximumResolution)),
-                             "value": sizeToString(maximumResolution)};
-
-        var optionFitting = {"icon": "",
-                             "label": "%1 (%2MP)".arg(sizeToAspectRatio(fittingResolution))
-                                                 .arg(sizeToMegapixels(fittingResolution)),
-                             "value": sizeToString(fittingResolution)};
-*/
-        photoResolutionOptionsModel.appendSize(maximumResolution);
-
-
-        // Only show optionFitting if it's greater than 50% of the maximum available resolution
-        var fittingSize = fittingResolution.width * fittingResolution.height;
-        var maximumSize = maximumResolution.width * maximumResolution.height;
-        if (fittingResolution !== maximumResolution &&
-            fittingSize / maximumSize >= 0.5) {
-            photoResolutionOptionsModel.appendSize(fittingResolution);
-        }
-
-        // If resolution setting is not supported select the resolution automatically
-        settings.photoResolutionIndex = photoResolutionOptionsModel.indexOf(previousPhotoResolution);
-        if (settings.photoResolutionIndex < 0) {
-            settings.photoResolutionIndex = getAutomaticResolutionIndex(maximumResolution, fittingResolution);
-        }
-
-        photoResolutionOptionsModel.modelChanged();
-    }
-
+    // The flash and the HAL's HDR merge do not go together: one flash cannot
+    // light every frame of a merge, and HALs refuse the combination.
+    onFlashModeChanged: if (flashMode === "on") hdrEnabled = false
+    onHdrEnabledChanged: if (hdrEnabled && flashMode === "on") flashMode = "off"
 }

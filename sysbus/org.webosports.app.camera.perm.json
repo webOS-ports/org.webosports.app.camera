@@ -5,7 +5,9 @@
         "settings.query",
         "systemsettings.query",
         "media.operation",
-        "image.management"
+        "image.management",
+        "audio.operation",
+        "location.query"
     ],
     "org.webosports.app.camera-*": [
         "killswitch.query",
@@ -13,7 +15,9 @@
         "settings.query",
         "systemsettings.query",
         "media.operation",
-        "image.management"
+        "image.management",
+        "audio.operation",
+        "location.query"
     ],
     "org.webosports.app.camera*": [
         "killswitch.query",
@@ -21,6 +25,8 @@
         "settings.query",
         "systemsettings.query",
         "media.operation",
-        "image.management"
+        "image.management",
+        "audio.operation",
+        "location.query"
     ]
 }

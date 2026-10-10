@@ -38,7 +38,7 @@ add_definitions(-DCAMERA_OUTPUT_DIR="${CAMERA_OUTPUT_DIR}")
 # Standard install paths. Needs to be set before finding packages.
 include(GNUInstallDirs)
 
-find_package(Qt6 REQUIRED COMPONENTS Qml Quick Multimedia Gui ShaderTools)
+find_package(Qt6 REQUIRED COMPONENTS Qml Quick Multimedia Gui)
 
 find_package(PkgConfig REQUIRED)
 # EXIF editing for geotags and orientation (libexif is already in the image:
@@ -53,8 +53,9 @@ message(STATUS "CAMERA_OUTPUT_DIR=${CAMERA_OUTPUT_DIR}")
 
 install(FILES ${APP_DATA} DESTINATION ${APP_DIR})
 
-# luna-service2: the app's role and the groups it may call. Without these the
-# hub refuses the app's bus handle outright.
+# luna-service2: the app's role and the groups it may call (the privacy switch
+# service, system sounds, location). Without these the hub refuses the app's
+# bus handle outright.
 install(FILES sysbus/org.webosports.app.camera.role.json
         DESTINATION share/luna-service2/roles.d
         RENAME org.webosports.app.camera.app.json)

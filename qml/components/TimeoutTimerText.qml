@@ -7,6 +7,14 @@ Text {
     opacity: 0
     text: timeOutTimer.nbRepeats
     font.pixelSize: Units.gu(6)
+    font.bold: true
+    // Over the viewfinder, whatever it shows.
+    color: "white"
+    style: Text.Outline
+    styleColor: "#80000000"
+
+    /// A countdown is under way.
+    readonly property bool running: timeOutTimer.running
 
     function startTimeout(nbSeconds, cb) {
         if(nbSeconds===0) {
