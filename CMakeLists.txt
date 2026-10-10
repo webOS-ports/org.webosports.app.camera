@@ -40,6 +40,11 @@ include(GNUInstallDirs)
 
 find_package(Qt6 REQUIRED COMPONENTS Qml Quick Multimedia Gui ShaderTools)
 
+find_package(PkgConfig REQUIRED)
+# EXIF editing for geotags and orientation (libexif is already in the image:
+# gst-droid uses it).
+pkg_check_modules(LIBEXIF REQUIRED IMPORTED_TARGET libexif)
+
 set(APP_DATA appinfo.json icon.png icon-256x256.png)
 set(PLUGIN_DIR ${APP_DIR}/CameraApp)
 
@@ -65,3 +70,9 @@ file(GLOB_RECURSE NON_COMPILED_FILES *.qml *.js *.svg *.png *.json *.sci qmldir)
 add_custom_target(NON_COMPILED_TARGET ALL SOURCES ${NON_COMPILED_FILES})
 
 add_subdirectory(CameraApp)
+
+option(BUILD_TESTING "Build the unit tests" OFF)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
