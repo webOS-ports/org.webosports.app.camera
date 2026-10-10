@@ -47,6 +47,17 @@ message(STATUS "APP_DIR=${APP_DIR}")
 message(STATUS "CAMERA_OUTPUT_DIR=${CAMERA_OUTPUT_DIR}")
 
 install(FILES ${APP_DATA} DESTINATION ${APP_DIR})
+
+# luna-service2: the app's role and the groups it may call. Without these the
+# hub refuses the app's bus handle outright.
+install(FILES sysbus/org.webosports.app.camera.role.json
+        DESTINATION share/luna-service2/roles.d
+        RENAME org.webosports.app.camera.app.json)
+install(FILES sysbus/org.webosports.app.camera.perm.json
+        DESTINATION share/luna-service2/client-permissions.d)
+install(FILES sysbus/org.webosports.app.camera.manifest.json
+        DESTINATION share/luna-service2/manifests.d
+        RENAME org.webosports.app.camera.json)
 install(DIRECTORY qml DESTINATION ${APP_DIR})
 
 # make non compiled files visible in qtcreator
