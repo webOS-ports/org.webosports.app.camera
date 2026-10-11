@@ -124,13 +124,23 @@ WebOSWindow {
             locationCall = null;
             return;
         }
+        var fix = fixFrom(response);
+        if (fix)
+            lastFix = fix;
+    }
+    /* A fix usable for a geotag from a location service reply, or null. Not
+     * one: no position, the 0, 0 the Q25's service has answered with while it
+     * had no fix at all, and anything less precise than 500 m or of unknown
+     * precision (beaconDB's fallback from the IP address is 25 km). */
+    readonly property real geotagAccuracyLimit: 500
+    function fixFrom(response) {
         if (response.latitude === undefined || response.longitude === undefined)
-            return;
-        // Not a position: the Q25's location service has answered with
-        // latitude 0, longitude 0 and accuracy 0 while it had no fix at all.
+            return null;
         if (response.latitude === 0 && response.longitude === 0)
-            return;
-        lastFix = {
+            return null;
+        if (!(response.horizAccuracy > 0 && response.horizAccuracy <= geotagAccuracyLimit))
+            return null;
+        return {
             latitude: response.latitude,
             longitude: response.longitude,
             // A network fix has no altitude: the service then says -1 for both the
@@ -147,6 +157,21 @@ WebOSWindow {
         repeat: true
         running: root.wantLocation && root.busReady && !root.locationCall
         onTriggered: root.updateLocationRequest()
+    }
+    /* Standing still, the service sends no new position and does not look
+     * again on its own, so the one it sent goes past two minutes while the
+     * camera is still open (seen on the Pixel 3a: a fix at 10:20:15, a photo
+     * at 10:23:53 untagged). Ask anew every minute while the camera is in
+     * front with tagging on: one WiFi scan and one lookup. */
+    Timer {
+        interval: 60000
+        repeat: true
+        running: root.wantLocation && root.busReady && !!root.locationCall
+        onTriggered: {
+            root.locationCall.cancel();
+            root.locationCall = null;
+            root.updateLocationRequest();
+        }
     }
     function handleLocationError(error) {
         console.warn("Location request failed: " + JSON.stringify(error));
@@ -179,16 +204,43 @@ WebOSWindow {
         var options = { rotation: cameraViewItem.recordingRotation };
         if (cameraViewItem.useDroidCamera && DroidCameraFactory.controlsReady)
             options.exposureBias = DroidCameraFactory.appliedExposureCompensation();
-        var where = currentLocation();
-        if (where) {
-            options.latitude = where.latitude;
-            options.longitude = where.longitude;
-            if (!isNaN(where.altitude))
-                options.altitude = where.altitude;
-        }
         if (!cameraViewItem.halZoom && cameraViewItem.zoomFactor > 1.001)
             options.zoom = cameraViewItem.zoomFactor;
-        imageTools.process(path, options);
+
+        var done = false;
+        function finish(where) {
+            if (done)
+                return;
+            done = true;
+            if (where) {
+                options.latitude = where.latitude;
+                options.longitude = where.longitude;
+                if (!isNaN(where.altitude))
+                    options.altitude = where.altitude;
+            }
+            imageTools.process(path, options);
+        }
+
+        var where = currentLocation();
+        if (where || !preferences.gpsEnabled || !busReady) {
+            finish(where);
+            return;
+        }
+        /* The subscription only reports a position when it changes; standing
+         * still, the last one it sent goes past two minutes while the service
+         * keeps confirming it. Ask for that, as fresh as the service has it,
+         * and finish the photo with or without it - in 3 s at the latest. */
+        lunaService.call("luna://com.webos.service.location/getCachedPosition",
+                         JSON.stringify({ maximumAge: 2 * 60 * 1000 }),
+                         function (message) {
+                             var fix = fixFrom(JSON.parse(message.payload));
+                             if (fix)
+                                 lastFix = fix;
+                             finish(currentLocation());
+                         },
+                         function (error) { finish(null); });
+        var fallback = Qt.createQmlObject("import QtQuick; Timer { interval: 3000; running: true }", root);
+        fallback.triggered.connect(function () { finish(null); fallback.destroy(); });
     }
 
     CameraView {
