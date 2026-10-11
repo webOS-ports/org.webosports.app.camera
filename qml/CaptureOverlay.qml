@@ -338,69 +338,61 @@ Item {
         }
     }
 
-    // Front / back.
     // Preferences, in the top left corner, mirroring front / back; clear of a bar on the left.
-    Rectangle {
+    // Both corner buttons are the bar's black button with a white icon on it.
+    SpriteButton {
         id: settingsButton
         anchors {
             top: parent.top; left: parent.left; margins: Units.gu(1.5)
             leftMargin: overlay.barSide === "left" ? overlay.barDepth + Units.gu(1.5) : Units.gu(1.5)
         }
-        width: Units.gu(6)
+        width: Units.gu(6.25)
         height: width
-        radius: width / 2
-        color: settingsArea.pressed ? "#c0000000" : "#80000000"
-        border.color: "#80ffffff"
-        border.width: 1
+        source: Qt.resolvedUrl("images/legacy/blank-button.png")
+        frames: 2
         visible: !overlay.recording
+        onClicked: overlay.settingsButtonClicked()
 
         Image {
             anchors.centerIn: parent
-            width: Units.gu(3.5)
+            width: Units.gu(3.25)
             height: width
             sourceSize.width: width
             source: "images/settings.svg"
         }
-        MouseArea {
-            id: settingsArea
-            anchors.fill: parent
-            onClicked: overlay.settingsButtonClicked()
-        }
     }
 
-    Rectangle {
+    // Front / back.
+    SpriteButton {
         id: flipButton
         // Clear of the bar when it runs down the right edge.
         anchors {
             top: parent.top; right: parent.right; margins: Units.gu(1.5)
             rightMargin: overlay.barSide === "right" ? overlay.barDepth + Units.gu(1.5) : Units.gu(1.5)
         }
-        width: Units.gu(6)
+        width: Units.gu(6.25)
         height: width
-        radius: width / 2
-        color: flipArea.pressed ? "#c0000000" : "#80000000"
-        border.color: "#80ffffff"
-        border.width: 1
+        source: Qt.resolvedUrl("images/legacy/blank-button.png")
+        frames: 2
         visible: overlay.cameraCount > 1 && !overlay.recording
+        onClicked: prefs.position = (prefs.position === CameraDevice.FrontFace)
+                   ? CameraDevice.BackFace : CameraDevice.FrontFace
 
         Image {
             anchors.centerIn: parent
-            width: Units.gu(3.5)
+            width: Units.gu(3.25)
             height: width
             sourceSize.width: width
-            source: "images/flipcamera.svg"
-        }
-        MouseArea {
-            id: flipArea
-            anchors.fill: parent
-            onClicked: prefs.position = (prefs.position === CameraDevice.FrontFace)
-                       ? CameraDevice.BackFace : CameraDevice.FrontFace
+            source: "images/flipcamera-white.svg"
         }
     }
 
-    // What is switched on that changes the picture.
+    // What is switched on that changes the picture, beside the settings button.
     Row {
-        anchors { top: parent.top; left: parent.left; margins: Units.gu(1.5) }
+        anchors {
+            verticalCenter: settingsButton.verticalCenter
+            left: settingsButton.right; leftMargin: Units.gu(1)
+        }
         spacing: Units.gu(0.75)
 
         Repeater {
