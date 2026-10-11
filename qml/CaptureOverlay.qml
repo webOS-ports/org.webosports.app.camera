@@ -187,6 +187,8 @@ Item {
             return DroidCameraFactory.supportedFlashModes.indexOf(m) >= 0;
         });
     }
+    // The flash button: a choice of flash modes for photos, the light for videos.
+    readonly property bool flashButtonShown: videoMode ? hasVideoLight : flashModes.length > 1
     readonly property bool hasVideoLight: useDroid ? flashModes.length > 0 : FlashLed.available
 
     function nextFlashMode() {
@@ -250,15 +252,17 @@ Item {
             }
         }
 
-        // The bezel behind the shutter (and, for photos, the flash).
+        // The bezel behind the shutter, widened to hold the flash button when there is one.
+        // Without a flash (a camera with no flash modes, or video) it is the round one.
         Image {
             id: bezel
+            readonly property bool withFlash: !overlay.videoMode && overlay.flashButtonShown
             anchors.verticalCenter: parent.verticalCenter
-            source: overlay.videoMode ? "images/legacy/menu-bezel-camcorder.png"
-                                      : "images/legacy/menu-bezel-camera.png"
-            width: overlay.videoMode ? Units.gu(10) : Units.gu(16.6)
-            height: overlay.videoMode ? Units.gu(10) : Units.gu(9.5)
-            x: overlay.videoMode ? bar.width / 2 - width / 2 : bar.width / 2 - Units.gu(4.6)
+            source: withFlash ? "images/legacy/menu-bezel-camera.png"
+                              : "images/legacy/menu-bezel-camcorder.png"
+            width: withFlash ? Units.gu(16.6) : Units.gu(10)
+            height: withFlash ? Units.gu(9.5) : Units.gu(10)
+            x: withFlash ? bar.width / 2 - Units.gu(4.6) : bar.width / 2 - width / 2
         }
 
         SpriteButton {
@@ -282,7 +286,7 @@ Item {
             rotation: bar.upright
             source: Qt.resolvedUrl("images/legacy/flash-buttons.png")
             frames: 6
-            visible: overlay.videoMode ? overlay.hasVideoLight : overlay.flashModes.length > 1
+            visible: overlay.flashButtonShown
             frame: overlay.videoMode ? (prefs.videoLight ? 2 : 0)
                  : prefs.flashMode === "on" ? 2 : prefs.flashMode === "auto" ? 4 : 0
             onClicked: {
