@@ -7,6 +7,7 @@ import LunaNext.Common 0.1
 
 import CameraApp 0.1
 import LuneOS.Camera 1.0
+import LuneOS.Service 1.0
 import "components"
 
 Item {
@@ -15,18 +16,24 @@ Item {
     signal imageCaptured(variant preview);
     signal captureDone(string filepath);
     signal galleryButtonClicked();
+    /* A QR code or barcode came into view (see BarcodeScanner below). */
+    signal codeDetected(string text, string format);
 
     property PreferencesModel prefs;
     readonly property var captureSessionItem: captureSessionLoader.item
 
-    // Digital zoom. Qt's gstreamer camera backend never implements
-    // setZoomFactor() - QPlatformCamera's default is a no-op and the gstreamer
-    // plugin does not override it - so camera.zoomFactor does nothing and the
-    // zoom has to be applied to the viewfinder itself. This scales the preview;
-    // a still capture still comes off the full frame.
+    // Zoom. On Halium the HAL zooms (DroidCameraFactory.zoom), so the preview,
+    // the still and the recording are all cropped by the camera itself.
+    // Qt's gstreamer camera backend never implements setZoomFactor() -
+    // QPlatformCamera's default is a no-op and the gstreamer plugin does not
+    // override it - so on the libcamera path the zoom is applied to the
+    // viewfinder, and CaptureOverlay crops the saved still to match.
     property real zoomFactor: 1.0
     readonly property real minimumZoomFactor: 1.0
-    readonly property real maximumZoomFactor: 8.0
+    readonly property bool halZoom: useDroidCamera && DroidCameraFactory.maximumZoom > 1.0
+    readonly property real maximumZoomFactor: halZoom ? DroidCameraFactory.maximumZoom : 8.0
+    // How much the viewfinder itself is scaled: none when the HAL zooms.
+    readonly property real viewfinderScale: halZoom ? 1.0 : zoomFactor
 
     // Viewfinder rotation. The frame arrives the way the sensor scans it,
     // and the shell rotates the whole screen with the device: luna-
@@ -69,7 +76,32 @@ Item {
     }
     property int lastDeviceRotation: 0
     onDeviceRotationChanged: if (deviceRotation >= 0) lastDeviceRotation = deviceRotation
+    // On a square screen (the Q25's 720x720) the shell turns the card with the device but the
+    // window keeps its shape, so the shape cannot tell a turned card from an unturned one. There
+    // the shell's own rule decides: it follows the orientation sensor, unless the user locked
+    // the rotation, which the "rotationLock" preference holds as the locked angle (400 when
+    // unlocked; see luna-next-cardshell's OrientationHelper).
+    readonly property bool squareScreen: Math.abs(Screen.width - Screen.height)
+                                         < 0.05 * Math.max(Screen.width, Screen.height)
+    property int shellRotationLock: 400
+    LunaService {
+        id: preferencesService
+        name: "org.webosports.app.camera"
+        onInitialized: preferencesService.subscribe(
+            "luna://com.webos.service.systemservice/getPreferences",
+            JSON.stringify({ "keys": ["rotationLock"], "subscribe": true }),
+            function (message) {
+                var response = JSON.parse(message.payload);
+                if (response.hasOwnProperty("rotationLock"))
+                    cameraViewRoot.shellRotationLock = response.rotationLock;
+            },
+            function (error) { console.warn("rotationLock preference: " + JSON.stringify(error)); })
+    }
     readonly property int screenRotation: {
+        if (squareScreen) {
+            var locked = shellRotationLock >= 0 && shellRotationLock < 360;
+            return locked ? shellRotationLock : lastDeviceRotation;
+        }
         var windowIsQuarterTurn = (windowIsPortrait !== primaryIsPortrait);
         var candidates = windowIsQuarterTurn ? [ 90, 270 ] : [ 0, 180 ];
         if (candidates.indexOf(lastDeviceRotation) >= 0)
@@ -122,6 +154,37 @@ Item {
                                                             : screenRotation;
         return ((sensorRotation + s) % 360 + 360) % 360;
     }
+    // How far the frames arrive turned already, clockwise. gst-droid tags its viewfinder with the
+    // HAL camera's mounting ("rotate-90" for most back cameras), and Qt turns every frame by that
+    // tag before VideoOutput adds its orientation on top; seen on the Pixel 3a, whose 90 degree
+    // back camera shows upright in portrait with a viewfinderRotation of 0.
+    readonly property int frameRotation: {
+        if (!useDroidCamera)
+            return 0;
+        for (var i = 0; i < droidCameras.length; ++i) {
+            if (droidCameras[i].index === droidCameraDevice)
+                return droidCameras[i].orientation;
+        }
+        return 0;
+    }
+    // The whole turn from the frame as the sensor delivers it to the screen, counter-clockwise.
+    readonly property int displayRotation: ((viewfinderRotation - frameRotation) % 360 + 360) % 360
+    // How far a player has to turn a recording, clockwise, to show it the way the viewfinder
+    // does. VideoOutput's orientation turns counter-clockwise (measured on the HP TouchPad: an
+    // orientation of 270 shows upright what a 90 degree clockwise turn of the recorded frame
+    // does), and it mirrors after rotating, so the unmirrored recording of the front camera
+    // needs the same turn.
+    // With gst-droid the HAL gives the camera's mounting, so use Android's own rule, which is
+    // about how the device is held and so does not depend on whether the shell turned the card:
+    // the back camera's mounting plus the device's turn, the front camera's minus it. Measured on
+    // the Q25: front camera held right side up, the other rule tagged the photo upside down.
+    readonly property int recordingRotation: {
+        if (!useDroidCamera)
+            return (360 - displayRotation) % 360;
+        var turn = activePosition === CameraDevice.FrontFace ? frameRotation - lastDeviceRotation
+                                                             : frameRotation + lastDeviceRotation;
+        return (turn % 360 + 360) % 360;
+    }
     onViewfinderRotationChanged: console.warn("viewfinder rotation " + viewfinderRotation
         + " (window " + (windowIsPortrait ? "portrait" : "landscape")
         + ", device " + lastDeviceRotation + ", wl_output " + Screen.orientation
@@ -173,13 +236,111 @@ Item {
                               Math.min(maximumZoomFactor, value));
     }
 
+    /* The droid camera's controls follow the preferences. DroidCameraFactory
+     * keeps what it is given until the camera has opened and applies it then,
+     * and leaves out what the camera in use does not support. */
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "flashMode"
+              value: prefs.captureMode === PreferencesModel.CaptureVideo ? "off" : prefs.flashMode }
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "torch"
+              value: prefs.captureMode === PreferencesModel.CaptureVideo && prefs.videoLight }
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "focusMode"; value: prefs.focusMode }
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "whiteBalanceMode"; value: prefs.whiteBalanceMode }
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "sceneMode"; value: prefs.sceneMode }
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "colorTone"; value: prefs.colorTone }
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "flickerMode"; value: prefs.flickerMode }
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "isoSpeed"; value: prefs.isoSpeed }
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "exposureCompensation"; value: prefs.exposureCompensation }
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "jpegQuality"; value: prefs.jpegQuality }
+    // A saved exposure between two of the camera's steps (a third of an EV was
+    // the slider's step before it knew the camera's) goes to the nearest one,
+    // so what the slider shows is what the camera applies.
+    Connections {
+        target: useDroidCamera ? DroidCameraFactory : null
+        function onControlsChanged() {
+            var f = DroidCameraFactory;
+            var step = f.exposureCompensationStep;
+            if (!f.controlsReady || !(step > 0) || !prefs)
+                return;
+            var snapped = Math.round(prefs.exposureCompensation / step) * step;
+            snapped = Math.max(f.minimumExposureCompensation, Math.min(f.maximumExposureCompensation, snapped));
+            if (Math.abs(snapped - prefs.exposureCompensation) > 1e-6)
+                prefs.exposureCompensation = snapped;
+        }
+    }
+    // The HAL's HDR merge is for stills.
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "hdrEnabled"
+              value: prefs.hdrEnabled && prefs.captureMode === PreferencesModel.CaptureStillImage }
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "zslEnabled"; value: prefs.zslEnabled }
+    Binding { when: halZoom; target: DroidCameraFactory; property: "zoom"; value: cameraViewRoot.zoomFactor }
+
+    /* Tap-to-focus. Where the reticle sits, in this item's coordinates, and
+     * whether the user put it there (otherwise it rests in the middle). */
+    property point focusPoint: Qt.point(width / 2, height / 2)
+    property bool focusPointChosen: false
+    readonly property bool tapToFocus: useDroidCamera && DroidCameraFactory.controlsReady
+                                       && (DroidCameraFactory.focusAreasSupported
+                                           || DroidCameraFactory.supportedFocusModes.indexOf("auto") >= 0)
+
+    function focusAt(x, y) {
+        if (!tapToFocus)
+            return;
+        var source = videoOutputView.sourceRect;
+        var p = CameraGeometry.viewToFrame(Qt.point(x, y), Qt.size(width, height),
+                                           Qt.size(source.width, source.height),
+                                           displayRotation,
+                                           activePosition === CameraDevice.FrontFace,
+                                           viewfinderScale);
+        if (p.x < 0)
+            return; // on a letterbox bar
+        focusPoint = Qt.point(x, y);
+        focusPointChosen = true;
+        DroidCameraFactory.focusAt(p.x, p.y);
+    }
+
+    function resetFocus() {
+        focusPointChosen = false;
+        focusPoint = Qt.point(width / 2, height / 2);
+        if (useDroidCamera)
+            DroidCameraFactory.resetFocus();
+    }
+    onWidthChanged: if (!focusPointChosen) focusPoint = Qt.point(width / 2, height / 2)
+    onHeightChanged: if (!focusPointChosen) focusPoint = Qt.point(width / 2, height / 2)
+
+    BarcodeScanner {
+        videoSink: videoOutputView.videoSink
+        active: prefs.scanCodes && prefs.captureMode === PreferencesModel.CaptureStillImage
+                && cameraViewRoot.visible && !cameraViewRoot.previewStarting
+        onDecoded: (text, format) => cameraViewRoot.codeDetected(text, format)
+    }
+
     // On Halium devices the cameras sit behind the Android HAL and are not
     // enumerable through MediaDevices; gst-droid's droidcamsrc is the way in.
     property bool useDroidCamera: DroidCameraFactory.available
     // Android convention: device 0 = back camera, 1 = front. The Front/Back
     // switcher writes prefs.position, so follow it here; the
     // onDroidCameraDeviceChanged handler below recreates the source.
-    property int droidCameraDevice: prefs && prefs.position === CameraDevice.FrontFace ? 1 : 0
+    // The HAL camera to open: the one picked in the preferences when it faces
+    // the side asked for, else the HAL's first camera on that side. Phones
+    // with an ultra-wide or tele list more than one camera per side.
+    readonly property var droidCameras: useDroidCamera ? DroidCameraFactory.cameras() : []
+    readonly property int droidCameraDevice: {
+        if (!prefs)
+            return 0;
+        var facing = prefs.position === CameraDevice.FrontFace ? "front" : "back";
+        var first = -1;
+        for (var i = 0; i < droidCameras.length; ++i) {
+            if (droidCameras[i].facing !== facing)
+                continue;
+            if (droidCameras[i].index === prefs.droidCameraIndex)
+                return prefs.droidCameraIndex;
+            if (first < 0)
+                first = droidCameras[i].index;
+        }
+        if (first >= 0)
+            return first;
+        // A HAL that lists nothing (or no camera on that side): Android's convention.
+        return prefs.position === CameraDevice.FrontFace ? 1 : 0;
+    }
 
     // QVideoFrameFormat::PixelFormat is not reachable from QML in Qt 6.12 -
     // VideoFrameFormat, CameraFormat and QVideoFrameFormat are all undefined
@@ -492,6 +653,10 @@ Item {
     }
 
     onDroidCameraDeviceChanged: {
+        // Another camera: its own zoom range, and the old focus point means nothing.
+        focusPointChosen = false;
+        focusPoint = Qt.point(width / 2, height / 2);
+        setZoomFactor(1.0);
         if (useDroidCamera)
             attachDroidCamera();
     }
@@ -604,36 +769,15 @@ Item {
                 applyPreferredFormat();
             }
 
-            flashMode: camera.captureMode === PreferencesModel.CaptureStillImage ? prefs.flashMode :
-                       camera.captureMode === PreferencesModel.CaptureVideo ? prefs.videoFlashMode :
-                            Camera.FlashOff
+            flashMode: prefs.captureMode === PreferencesModel.CaptureVideo ? Camera.FlashOff
+                     : prefs.flashMode === "on" ? Camera.FlashOn
+                     : prefs.flashMode === "off" ? Camera.FlashOff : Camera.FlashAuto
 
             focusMode: Camera.FocusModeAuto
             whiteBalanceMode: Camera.WhiteBalanceAuto
             exposureMode: Camera.ExposureAuto
 
-            property AdvancedCameraSettings advanced: AdvancedCameraSettings {
-                captureSession: captureSessionLoader.item
-                hdrEnabled: prefs.hdrEnabled
-                encodingQuality: prefs.encodingQuality
-                /*
-                onVideoSupportedResolutionsChanged: prefs.updateVideoResolutionOptions(camera.advanced.videoSupportedResolutions);
-                onFittingResolutionChanged: prefs.updatePhotoResolutionOptions(camera.advanced.maximumResolution, camera.advanced.fittingResolution);
-                onMaximumResolutionChanged: prefs.updatePhotoResolutionOptions(camera.advanced.maximumResolution, camera.advanced.fittingResolution);
-                */
-            }
-
-            function updateResolutionOptions() {
-                prefs.updateVideoResolutionOptions(camera.advanced.videoSupportedResolutions);
-                prefs.updatePhotoResolutionOptions(camera.advanced.maximumResolution, camera.advanced.fittingResolution);
-                // FIXME: see workaround setting camera.viewfinder.resolution above
-                camera.cameraFormat.resolution = camera.advanced.resolution;
-            }
-
-
             Component.onCompleted: {
-                //updateResolutionOptions();
-
                 // The droid video source replaces this camera entirely.
                 if (cameraViewRoot.useDroidCamera)
                     return;
@@ -689,20 +833,6 @@ Item {
             imageCapture: ImageCapture {
                 id: imageCapture
 
-                // resolution: prefs.photoResolutionOptionsModel.getAsSize(prefs.photoResolutionIndex)
-
-                onResolutionChanged: {
-                    // FIXME: this is a necessary workaround because:
-                    // - Neither camera.viewfinder.resolution nor camera.advanced.resolution
-                    //   emit a changed signal when the underlying AalViewfinderSettingsControl's
-                    //   resolution changes
-                    // - we know that qtubuntu-camera changes the resolution of the
-                    //   viewfinder automatically when the capture resolution is set
-                    // - we need camera.viewfinder.resolution to hold the right
-                    //   value
-                    camera.viewfinder.resolution = camera.advanced.resolution;
-                }
-
                 onImageCaptured: (requestId, previewImage) => {
                     cameraViewRoot.imageCaptured(previewImage)
                 }
@@ -719,15 +849,6 @@ Item {
                 id: recorder
 
                 outputLocation: StorageLocations.videosLocation;
-
-                /* TODO
-                resolution: prefs.videoResolutionOptionsModel.getAsSize(prefs.videoResolutionIndex)
-
-                onResolutionChanged: {
-                    // FIXME: see workaround setting camera.viewfinder.resolution above
-                    camera.viewfinder.resolution = camera.advanced.resolution;
-                }
-                */
             }
             videoOutput: videoOutputView
         }
@@ -758,8 +879,8 @@ Item {
             transform: Scale {
                 origin.x: videoOutputView.width / 2
                 origin.y: videoOutputView.height / 2
-                xScale: cameraViewRoot.zoomFactor
-                yScale: cameraViewRoot.zoomFactor
+                xScale: cameraViewRoot.viewfinderScale
+                yScale: cameraViewRoot.viewfinderScale
             }
 
             orientation: cameraViewRoot.viewfinderRotation
@@ -778,36 +899,33 @@ Item {
                 // CaptureOverlay is a later sibling of CameraView in main.qml,
                 // so it sits above this and keeps its own taps; nothing here
                 // needs to let events through.
-                onDoubleClicked: cameraViewRoot.setZoomFactor(1.0)
+                onClicked: (mouse) => cameraViewRoot.focusAt(mouse.x, mouse.y)
+                onDoubleClicked: { cameraViewRoot.setZoomFactor(1.0); cameraViewRoot.resetFocus(); }
                 onWheel: function(wheel) {
                     cameraViewRoot.setZoomFactor(cameraViewRoot.zoomFactor
                                                  * (wheel.angleDelta.y > 0 ? 1.1 : 1 / 1.1));
                 }
             }
         }
-
-        // Only shown while actually zoomed.
-        Rectangle {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: Units.gu(2)
-            width: zoomLabel.width + Units.gu(2)
-            height: zoomLabel.height + Units.gu(1)
-            radius: height / 2
-            color: "#80000000"
-            visible: cameraViewRoot.zoomFactor > 1.001
-
-            Text {
-                id: zoomLabel
-                anchors.centerIn: parent
-                color: "white"
-                font.pixelSize: Units.gu(1.5)
-                text: cameraViewRoot.zoomFactor.toFixed(1) + "x"
-            }
-        }
     }
+    // Where the picture is, in this item's (and the window's) coordinates: the
+    // VideoOutput fills the item and fits the frame in, leaving black strips.
+    readonly property rect pictureRect: videoOutputView.contentRect
+
     GridLines {
-        anchors.fill: parent
+        x: cameraViewRoot.pictureRect.x
+        y: cameraViewRoot.pictureRect.y
+        width: cameraViewRoot.pictureRect.width
+        height: cameraViewRoot.pictureRect.height
         visible: prefs.gridEnabled
+    }
+
+    FocusReticle {
+        x: cameraViewRoot.focusPoint.x - width / 2
+        y: cameraViewRoot.focusPoint.y - height / 2
+        // Hidden while recording, as on the legacy phones.
+        visible: !DroidCameraFactory.recording && !cameraViewRoot.previewStarting
+        focusStatus: cameraViewRoot.useDroidCamera ? DroidCameraFactory.focusStatus
+                                                   : DroidCameraFactory.FocusIdle
     }
 }

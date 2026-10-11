@@ -21,12 +21,10 @@
 #include <QtQuick>
 #include <QFile>
 #include "components.h"
-#include "advancedcamerasettings.h"
 #include "cpuboost.h"
 #include "fileoperations.h"
 #include "flashled.h"
-#include "foldersmodel.h"
-#include "pieslice.h"
+#include "imagetools.h"
 #include "storagemonitor.h"
 #include "storagelocations.h"
 
@@ -49,12 +47,10 @@ void Components::registerTypes(const char *uri)
    Q_ASSERT(uri == QLatin1String("CameraApp"));
 
     // @uri CameraApp
-    qmlRegisterType<AdvancedCameraSettings>(uri, 0, 1, "AdvancedCameraSettings");
     qmlRegisterType<CpuBoost>(uri, 0, 1, "CpuBoost");
     qmlRegisterType<FileOperations>(uri, 0, 1, "FileOperations");
     qmlRegisterSingletonType<FlashLed>(uri, 0, 1, "FlashLed", FlashLed_singleton_factory);
-    qmlRegisterType<FoldersModel>(uri, 0, 1, "FoldersModel");
-    qmlRegisterType<MenuPieSlice>(uri, 0, 1, "MenuPieSlice");
+    qmlRegisterType<ImageTools>(uri, 0, 1, "ImageTools");
     qmlRegisterType<StorageMonitor>(uri, 0, 1, "StorageMonitor");
     qmlRegisterSingletonType<StorageLocations>(uri, 0, 1, "StorageLocations", StorageLocations_singleton_factory);
 }

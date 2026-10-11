@@ -5,6 +5,6 @@
         "/usr/share/luna-service2/roles.d/org.webosports.app.camera.app.json"
     ],
     "clientPermissionFiles": [
-        "/usr/share/luna-service2/client-permissions.d/org.webosports.app.camera.app.json"
+        "/usr/share/luna-service2/client-permissions.d/org.webosports.app.camera.perm.json"
     ]
 }

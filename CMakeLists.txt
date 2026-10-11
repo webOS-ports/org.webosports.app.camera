@@ -38,7 +38,12 @@ add_definitions(-DCAMERA_OUTPUT_DIR="${CAMERA_OUTPUT_DIR}")
 # Standard install paths. Needs to be set before finding packages.
 include(GNUInstallDirs)
 
-find_package(Qt6 REQUIRED COMPONENTS Qml Quick Multimedia Gui ShaderTools)
+find_package(Qt6 REQUIRED COMPONENTS Qml Quick Multimedia Gui)
+
+find_package(PkgConfig REQUIRED)
+# EXIF editing for geotags and orientation (libexif is already in the image:
+# gst-droid uses it).
+pkg_check_modules(LIBEXIF REQUIRED IMPORTED_TARGET libexif)
 
 set(APP_DATA appinfo.json icon.png icon-256x256.png)
 set(PLUGIN_DIR ${APP_DIR}/CameraApp)
@@ -47,6 +52,18 @@ message(STATUS "APP_DIR=${APP_DIR}")
 message(STATUS "CAMERA_OUTPUT_DIR=${CAMERA_OUTPUT_DIR}")
 
 install(FILES ${APP_DATA} DESTINATION ${APP_DIR})
+
+# luna-service2: the app's role and the groups it may call (the privacy switch
+# service, system sounds, location). Without these the hub refuses the app's
+# bus handle outright.
+install(FILES sysbus/org.webosports.app.camera.role.json
+        DESTINATION share/luna-service2/roles.d
+        RENAME org.webosports.app.camera.app.json)
+install(FILES sysbus/org.webosports.app.camera.perm.json
+        DESTINATION share/luna-service2/client-permissions.d)
+install(FILES sysbus/org.webosports.app.camera.manifest.json
+        DESTINATION share/luna-service2/manifests.d
+        RENAME org.webosports.app.camera.json)
 install(DIRECTORY qml DESTINATION ${APP_DIR})
 
 # make non compiled files visible in qtcreator
@@ -54,3 +71,9 @@ file(GLOB_RECURSE NON_COMPILED_FILES *.qml *.js *.svg *.png *.json *.sci qmldir)
 add_custom_target(NON_COMPILED_TARGET ALL SOURCES ${NON_COMPILED_FILES})
 
 add_subdirectory(CameraApp)
+
+option(BUILD_TESTING "Build the unit tests" OFF)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

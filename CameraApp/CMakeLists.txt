@@ -2,11 +2,10 @@
 set(plugin_SRCS
     components.cpp
     cpuboost.cpp
-    advancedcamerasettings.cpp
     fileoperations.cpp
     flashled.cpp
-    foldersmodel.cpp
-    pieslice.cpp
+    imagetools.cpp
+    jpegexif.cpp
     storagemonitor.cpp
     storagelocations.cpp
     )
@@ -14,11 +13,10 @@ set(plugin_SRCS
 set(plugin_HDRS
     components.h
     cpuboost.h
-    advancedcamerasettings.h
     fileoperations.h
     flashled.h
-    foldersmodel.h
-    pieslice.h
+    imagetools.h
+    jpegexif.h
     storagemonitor.h
     storagelocations.h
     )
@@ -32,6 +30,7 @@ target_link_libraries(camera-qml
     ${Qt6Qml_LIBRARIES}
     ${Qt6Quick_LIBRARIES}
     ${Qt6Multimedia_LIBRARIES}
+    PkgConfig::LIBEXIF
     )
 
 install(TARGETS camera-qml DESTINATION ${PLUGIN_DIR})
