@@ -133,7 +133,9 @@ WebOSWindow {
         lastFix = {
             latitude: response.latitude,
             longitude: response.longitude,
-            altitude: response.altitude !== undefined ? response.altitude : NaN,
+            // A network fix has no altitude: the service then says -1 for both the
+            // altitude and its accuracy, which would be written as 1 m below the sea.
+            altitude: (response.altitude !== undefined && response.vertAccuracy > 0) ? response.altitude : NaN,
             time: response.timestamp !== undefined ? response.timestamp : Date.now()
         };
     }
