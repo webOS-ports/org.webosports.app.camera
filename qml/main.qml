@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.LuneOS 2.0
-import QtPositioning
 import Eos.Window 0.1
 
 import LuneOS.Service 1.0
@@ -28,6 +27,10 @@ WebOSWindow {
     LunaService {
         id: lunaService
         name: "org.webosports.app.camera"
+        onInitialized: {
+            root.busReady = true;
+            root.updateLocationRequest();
+        }
     }
 
     /* The status bar's app menu draws nothing itself: it relaunches the app
@@ -88,24 +91,67 @@ WebOSWindow {
                          function(error) { console.warn("Could not open " + url + ": " + error); });
     }
 
-    /* Where the phone is, for geotags. Only asked while tagging is on, and a
-     * fix older than two minutes is not used: a stale position would tag a
-     * photo with somewhere it was not taken. */
-    PositionSource {
-        id: positionSource
-        name: "luneos"
-        active: preferences.gpsEnabled && Qt.application.state === Qt.ApplicationActive
-        updateInterval: 10000
+    /* Where the phone is, for geotags. Only asked while tagging is on and the
+     * app is in front, and a fix older than two minutes is not used: a stale
+     * position would tag a photo with somewhere it was not taken.
+     *
+     * Asked of the location service directly, on the app's own bus name, and
+     * not through Qt Positioning: the LuneOS position plugin connects to the
+     * bus without a name, so the hub gives it none of the app's permissions
+     * and refuses getLocationUpdates. */
+    property var locationCall: null
+    property var lastFix: null
+    property bool busReady: false
+    readonly property bool wantLocation: preferences.gpsEnabled
+                                         && Qt.application.state === Qt.ApplicationActive
+    onWantLocationChanged: updateLocationRequest()
+
+    function updateLocationRequest() {
+        if (wantLocation && busReady && !locationCall) {
+            locationCall = lunaService.subscribe("luna://com.webos.service.location/getLocationUpdates",
+                                                 JSON.stringify({ subscribe: true }),
+                                                 handleLocation, handleLocationError);
+        } else if (!wantLocation && locationCall) {
+            locationCall.cancel();
+            locationCall = null;
+        }
+    }
+    function handleLocation(message) {
+        var response = JSON.parse(message.payload);
+        if (response.returnValue === false) {
+            // "Location source is off" and the like; the request has ended.
+            console.warn("No location for geotags: " + (response.errorText || message.payload));
+            locationCall = null;
+            return;
+        }
+        if (response.latitude === undefined || response.longitude === undefined)
+            return;
+        lastFix = {
+            latitude: response.latitude,
+            longitude: response.longitude,
+            altitude: response.altitude !== undefined ? response.altitude : NaN,
+            time: response.timestamp !== undefined ? response.timestamp : Date.now()
+        };
+    }
+    // A request that ended (location switched off, the service restarted) is
+    // made again while tagging is wanted, so switching location on in the
+    // system settings is picked up without restarting the camera.
+    Timer {
+        interval: 30000
+        repeat: true
+        running: root.wantLocation && root.busReady && !root.locationCall
+        onTriggered: root.updateLocationRequest()
+    }
+    function handleLocationError(error) {
+        console.warn("Location request failed: " + JSON.stringify(error));
+        locationCall = null;
     }
     function currentLocation() {
-        if (!preferences.gpsEnabled || !positionSource.valid)
+        if (!preferences.gpsEnabled || !lastFix)
             return null;
-        var p = positionSource.position;
-        if (!p.latitudeValid || !p.longitudeValid || !p.timestamp)
+        if (Date.now() - lastFix.time > 2 * 60 * 1000)
             return null;
-        if (Date.now() - p.timestamp.getTime() > 2 * 60 * 1000)
-            return null;
-        return p.coordinate;
+        return lastFix;
     }
 
     /* Once saved, a photo is turned (EXIF Orientation), tagged with where it
