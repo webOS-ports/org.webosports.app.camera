@@ -126,6 +126,10 @@ WebOSWindow {
         }
         if (response.latitude === undefined || response.longitude === undefined)
             return;
+        // Not a position: the Q25's location service has answered with
+        // latitude 0, longitude 0 and accuracy 0 while it had no fix at all.
+        if (response.latitude === 0 && response.longitude === 0)
+            return;
         lastFix = {
             latitude: response.latitude,
             longitude: response.longitude,
