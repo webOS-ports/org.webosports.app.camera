@@ -128,12 +128,27 @@ Item {
                                                             : screenRotation;
         return ((sensorRotation + s) % 360 + 360) % 360;
     }
+    // How far the frames arrive turned already, clockwise. gst-droid tags its viewfinder with the
+    // HAL camera's mounting ("rotate-90" for most back cameras), and Qt turns every frame by that
+    // tag before VideoOutput adds its orientation on top; seen on the Pixel 3a, whose 90 degree
+    // back camera shows upright in portrait with a viewfinderRotation of 0.
+    readonly property int frameRotation: {
+        if (!useDroidCamera)
+            return 0;
+        for (var i = 0; i < droidCameras.length; ++i) {
+            if (droidCameras[i].index === droidCameraDevice)
+                return droidCameras[i].orientation;
+        }
+        return 0;
+    }
+    // The whole turn from the frame as the sensor delivers it to the screen, counter-clockwise.
+    readonly property int displayRotation: ((viewfinderRotation - frameRotation) % 360 + 360) % 360
     // How far a player has to turn a recording, clockwise, to show it the way the viewfinder
     // does. VideoOutput's orientation turns counter-clockwise (measured on the HP TouchPad: an
     // orientation of 270 shows upright what a 90 degree clockwise turn of the recorded frame
     // does), and it mirrors after rotating, so the unmirrored recording of the front camera
     // needs the same turn.
-    readonly property int recordingRotation: (360 - viewfinderRotation) % 360
+    readonly property int recordingRotation: (360 - displayRotation) % 360
     onViewfinderRotationChanged: console.warn("viewfinder rotation " + viewfinderRotation
         + " (window " + (windowIsPortrait ? "portrait" : "landscape")
         + ", device " + lastDeviceRotation + ", wl_output " + Screen.orientation
@@ -219,7 +234,7 @@ Item {
         var source = videoOutputView.sourceRect;
         var p = CameraGeometry.viewToFrame(Qt.point(x, y), Qt.size(width, height),
                                            Qt.size(source.width, source.height),
-                                           viewfinderRotation,
+                                           displayRotation,
                                            activePosition === CameraDevice.FrontFace,
                                            viewfinderScale);
         if (p.x < 0)
