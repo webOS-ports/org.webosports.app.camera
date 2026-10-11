@@ -383,7 +383,9 @@ Item {
             width: Units.gu(3.25)
             height: width
             sourceSize.width: width
-            source: "images/flipcamera-white.svg"
+            // webOS's own circling arrows (the Pre3 email app's sync icon); the
+            // legacy camera had no front / back switch to take them from.
+            source: "images/legacy/icon-sync.png"
         }
     }
 
