@@ -5,6 +5,7 @@
 	"vendor": "WebOS Ports",
 	"vendor_url": "http://wiki.webos-ports.org/wiki/Application:Universe",
 	"type": "qml",
+	"useLuneOSStyle": true,
 	"main": "qml/main.qml",
 	"noWindow": true,
 	"useWebEngine": false,
