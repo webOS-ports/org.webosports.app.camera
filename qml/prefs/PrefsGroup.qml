@@ -22,21 +22,38 @@ Item {
      * reads as twenty-eight pixels tall while the rows start below all
      * thirty-six.
      */
-    readonly property real bandHeight: 28
-    readonly property real topInset: labelled ? 36 : 14
-    readonly property real sideInset: 14
+    readonly property real artBand: 28
+    readonly property real artTop: labelled ? 36 : 14
+    readonly property real artSide: 14
+
+    /*
+     * The artwork is enyo's, in CSS pixels, where the grid unit is eight; it is
+     * drawn at its own size and the whole frame scaled up by the grid unit, as
+     * the app does with the rest of the legacy art. Unscaled, the caption band
+     * stayed 28 pixels while the text grew with the screen: on the Pixel 3a
+     * (25 px grid unit) the caption filled the band. Through Units.gridUnit
+     * rather than Units.gu() so it follows if the grid unit changes.
+     */
+    readonly property real artScale: Units.gridUnit > 0 ? Units.gridUnit / 8 : 1
+    readonly property real bandHeight: artBand * artScale
+    readonly property real topInset: artTop * artScale
+    readonly property real sideInset: artSide * artScale
 
     implicitHeight: rowsColumn.height + topInset + sideInset
     height: implicitHeight
 
     BorderImage {
-        anchors.fill: parent
+        width: parent.width / prefsGroup.artScale
+        height: parent.height / prefsGroup.artScale
+        scale: prefsGroup.artScale
+        transformOrigin: Item.TopLeft
+        smooth: true
 
         source: prefsGroup.labelled ? "../images/legacy/group-labeled.png"
                                     : "../images/legacy/group-unlabeled.png"
         border {
-            left: prefsGroup.sideInset; right: prefsGroup.sideInset; bottom: prefsGroup.sideInset
-            top: prefsGroup.topInset
+            left: prefsGroup.artSide; right: prefsGroup.artSide; bottom: prefsGroup.artSide
+            top: prefsGroup.artTop
         }
         horizontalTileMode: BorderImage.Repeat
         verticalTileMode: BorderImage.Repeat
