@@ -30,7 +30,13 @@ Rectangle {
         Text {
             anchors.centerIn: parent
             color: 'white'
-            font.pixelSize: FontUtils.sizeToPixels("medium")
+            /* Through Units.gridUnit: FontUtils scales by the grid unit Units
+             * reads when it is first created, and before that it assumes 8 px.
+             * Nothing else in this file touches Units before this line, so the
+             * label came out at half the size of the rows on the Q25 (14 px
+             * against 28). Naming the property creates Units first, and
+             * re-evaluates should it change. */
+            font.pixelSize: Units.gridUnit > 0 ? FontUtils.sizeToPixels("medium") : 0
             text: doneBar.text
         }
 
