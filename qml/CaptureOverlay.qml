@@ -32,10 +32,24 @@ Item {
         : (captureSession && captureSession.recorder
            && captureSession.recorder.recorderState === MediaRecorder.RecordingState)
 
-    // Only a clearly wide window stands the bar up on the right. A square screen (the Q25's
-    // 720x720, a little wider than tall once the status bar is off) keeps it at the bottom,
-    // with the shutter in the middle, just above the keyboard.
+    // A clearly wide window. The Q25's square screen is a little wider than tall once the status
+    // bar is off, and does not count.
     readonly property bool landscape: width > height * 1.2
+    // Which edge of the window the bar runs along. On a square screen the shell turns the card
+    // with the device and the window keeps its shape, so the bar follows the device's own bottom
+    // edge, where the Q25's keyboard is: held right side up (the card turned 270) that is the
+    // window's right edge, held left side up (turned 90) its left edge.
+    readonly property string barSide: {
+        if (cameraView && cameraView.squareScreen) {
+            if (cameraView.screenRotation === 270)
+                return "right";
+            if (cameraView.screenRotation === 90)
+                return "left";
+            return "bottom";
+        }
+        return landscape ? "right" : "bottom";
+    }
+    readonly property bool barUpright: barSide !== "bottom"
     // The bar is 100 px deep.
     readonly property real barDepth: Units.gu(12.5)
 
@@ -181,18 +195,19 @@ Item {
         prefs.flashMode = modes[(i + 1) % modes.length];
     }
 
-    /* The bar, laid out as for a tall window and turned a quarter for a wide
-     * one; each button turns back, so its artwork stays upright. */
+    /* The bar, laid out as for a tall window and turned a quarter to run down
+     * a side edge; each button turns back, so its artwork stays upright. */
     Item {
         id: bar
 
-        width: overlay.landscape ? overlay.height : overlay.width
+        width: overlay.barUpright ? overlay.height : overlay.width
         height: overlay.barDepth
-        rotation: overlay.landscape ? -90 : 0
-        x: overlay.landscape ? overlay.width - height / 2 - width / 2 : 0
-        y: overlay.landscape ? overlay.height / 2 - height / 2 : overlay.height - height
+        rotation: overlay.barSide === "right" ? -90 : overlay.barSide === "left" ? 90 : 0
+        x: overlay.barSide === "right" ? overlay.width - height / 2 - width / 2
+         : overlay.barSide === "left" ? height / 2 - width / 2 : 0
+        y: overlay.barUpright ? overlay.height / 2 - height / 2 : overlay.height - height
 
-        readonly property real upright: overlay.landscape ? 90 : 0
+        readonly property real upright: -rotation
 
         // The last capture, 70 px square in a frame of its own.
         Item {
@@ -219,6 +234,8 @@ Item {
                 width: Units.gu(8.75)
                 height: width
                 fillMode: Image.PreserveAspectCrop
+                // The JPEG is stored as the sensor sees it; its EXIF orientation turns it.
+                autoTransform: true
                 asynchronous: true
                 sourceSize.width: Units.gu(16)
                 // A recording has no picture to show.
@@ -319,10 +336,10 @@ Item {
     // Front / back.
     Rectangle {
         id: flipButton
-        // Clear of the bar, which runs down the right edge of a wide window.
+        // Clear of the bar when it runs down the right edge.
         anchors {
             top: parent.top; right: parent.right; margins: Units.gu(1.5)
-            rightMargin: overlay.landscape ? overlay.barDepth + Units.gu(1.5) : Units.gu(1.5)
+            rightMargin: overlay.barSide === "right" ? overlay.barDepth + Units.gu(1.5) : Units.gu(1.5)
         }
         width: Units.gu(6)
         height: width

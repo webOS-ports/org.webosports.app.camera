@@ -7,6 +7,7 @@ import LunaNext.Common 0.1
 
 import CameraApp 0.1
 import LuneOS.Camera 1.0
+import LuneOS.Service 1.0
 import "components"
 
 Item {
@@ -75,7 +76,32 @@ Item {
     }
     property int lastDeviceRotation: 0
     onDeviceRotationChanged: if (deviceRotation >= 0) lastDeviceRotation = deviceRotation
+    // On a square screen (the Q25's 720x720) the shell turns the card with the device but the
+    // window keeps its shape, so the shape cannot tell a turned card from an unturned one. There
+    // the shell's own rule decides: it follows the orientation sensor, unless the user locked
+    // the rotation, which the "rotationLock" preference holds as the locked angle (400 when
+    // unlocked; see luna-next-cardshell's OrientationHelper).
+    readonly property bool squareScreen: Math.abs(Screen.width - Screen.height)
+                                         < 0.05 * Math.max(Screen.width, Screen.height)
+    property int shellRotationLock: 400
+    LunaService {
+        id: preferencesService
+        name: "org.webosports.app.camera"
+        onInitialized: preferencesService.subscribe(
+            "luna://com.webos.service.systemservice/getPreferences",
+            JSON.stringify({ "keys": ["rotationLock"], "subscribe": true }),
+            function (message) {
+                var response = JSON.parse(message.payload);
+                if (response.hasOwnProperty("rotationLock"))
+                    cameraViewRoot.shellRotationLock = response.rotationLock;
+            },
+            function (error) { console.warn("rotationLock preference: " + JSON.stringify(error)); })
+    }
     readonly property int screenRotation: {
+        if (squareScreen) {
+            var locked = shellRotationLock >= 0 && shellRotationLock < 360;
+            return locked ? shellRotationLock : lastDeviceRotation;
+        }
         var windowIsQuarterTurn = (windowIsPortrait !== primaryIsPortrait);
         var candidates = windowIsQuarterTurn ? [ 90, 270 ] : [ 0, 180 ];
         if (candidates.indexOf(lastDeviceRotation) >= 0)
@@ -148,7 +174,17 @@ Item {
     // orientation of 270 shows upright what a 90 degree clockwise turn of the recorded frame
     // does), and it mirrors after rotating, so the unmirrored recording of the front camera
     // needs the same turn.
-    readonly property int recordingRotation: (360 - displayRotation) % 360
+    // With gst-droid the HAL gives the camera's mounting, so use Android's own rule, which is
+    // about how the device is held and so does not depend on whether the shell turned the card:
+    // the back camera's mounting plus the device's turn, the front camera's minus it. Measured on
+    // the Q25: front camera held right side up, the other rule tagged the photo upside down.
+    readonly property int recordingRotation: {
+        if (!useDroidCamera)
+            return (360 - displayRotation) % 360;
+        var turn = activePosition === CameraDevice.FrontFace ? frameRotation - lastDeviceRotation
+                                                             : frameRotation + lastDeviceRotation;
+        return (turn % 360 + 360) % 360;
+    }
     onViewfinderRotationChanged: console.warn("viewfinder rotation " + viewfinderRotation
         + " (window " + (windowIsPortrait ? "portrait" : "landscape")
         + ", device " + lastDeviceRotation + ", wl_output " + Screen.orientation
