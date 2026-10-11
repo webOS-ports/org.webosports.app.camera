@@ -390,6 +390,7 @@ Item {
     }
 
     // What is switched on that changes the picture, beside the settings button.
+    // Tapping one switches it off again.
     Row {
         anchors {
             verticalCenter: settingsButton.verticalCenter
@@ -401,20 +402,22 @@ Item {
             model: {
                 var badges = [];
                 if (!overlay.videoMode && prefs.hdrEnabled && DroidCameraFactory.hdrSupported)
-                    badges.push("HDR");
+                    badges.push({ key: "hdr", text: "HDR" });
                 if (prefs.gpsEnabled)
-                    badges.push("GPS");
+                    badges.push({ key: "gps", text: "GPS" });
                 if (prefs.selfTimerDelay > 0 && !overlay.videoMode)
-                    badges.push(prefs.selfTimerDelay + "s");
+                    badges.push({ key: "timer", text: prefs.selfTimerDelay + "s" });
                 if (cameraView && cameraView.zoomFactor > 1.001)
-                    badges.push(cameraView.zoomFactor.toFixed(1) + "x");
+                    badges.push({ key: "zoom", text: cameraView.zoomFactor.toFixed(1) + "x" });
                 return badges;
             }
             delegate: Rectangle {
+                required property var modelData
+
                 width: label.width + Units.gu(1.5)
                 height: Units.gu(3)
                 radius: height / 2
-                color: "#80000000"
+                color: badgeArea.pressed ? "#c0000000" : "#80000000"
                 border.color: "#60ffffff"
                 border.width: 1
 
@@ -424,10 +427,28 @@ Item {
                     color: "white"
                     font.bold: true
                     font.pixelSize: FontUtils.sizeToPixels("small")
-                    text: modelData
+                    text: modelData.text
+                }
+
+                MouseArea {
+                    id: badgeArea
+                    // A little beyond the badge, which is small to hit.
+                    anchors { fill: parent; margins: -Units.gu(0.75) }
+                    onClicked: overlay.switchOff(modelData.key)
                 }
             }
         }
+    }
+
+    function switchOff(key) {
+        if (key === "hdr")
+            prefs.hdrEnabled = false;
+        else if (key === "gps")
+            prefs.gpsEnabled = false;
+        else if (key === "timer")
+            prefs.selfTimerDelay = 0;
+        else if (key === "zoom" && cameraView)
+            cameraView.setZoomFactor(1.0);
     }
 
     CodeBanner {
