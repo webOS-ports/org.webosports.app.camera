@@ -160,6 +160,7 @@ WebOSWindow {
         prefs: preferences
 
         onGalleryButtonClicked: root.openPhotos()
+        onSettingsButtonClicked: preferencesPage.open = true
         onCodeOpenRequested: (url) => root.openUrl(url)
     }
 

@@ -54,6 +54,7 @@ Item {
     readonly property real barDepth: Units.gu(12.5)
 
     signal galleryButtonClicked()
+    signal settingsButtonClicked()
     signal codeOpenRequested(string url)
 
     function setLastCapturedImage(path) {
@@ -338,6 +339,35 @@ Item {
     }
 
     // Front / back.
+    // Preferences, in the top left corner, mirroring front / back; clear of a bar on the left.
+    Rectangle {
+        id: settingsButton
+        anchors {
+            top: parent.top; left: parent.left; margins: Units.gu(1.5)
+            leftMargin: overlay.barSide === "left" ? overlay.barDepth + Units.gu(1.5) : Units.gu(1.5)
+        }
+        width: Units.gu(6)
+        height: width
+        radius: width / 2
+        color: settingsArea.pressed ? "#c0000000" : "#80000000"
+        border.color: "#80ffffff"
+        border.width: 1
+        visible: !overlay.recording
+
+        Image {
+            anchors.centerIn: parent
+            width: Units.gu(3.5)
+            height: width
+            sourceSize.width: width
+            source: "images/settings.svg"
+        }
+        MouseArea {
+            id: settingsArea
+            anchors.fill: parent
+            onClicked: overlay.settingsButtonClicked()
+        }
+    }
+
     Rectangle {
         id: flipButton
         // Clear of the bar when it runs down the right edge.

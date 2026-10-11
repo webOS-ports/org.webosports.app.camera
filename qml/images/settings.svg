@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Settings: an eight-toothed gear, drawn for the camera's corner button. -->
+<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+ <g fill="#ffffff">
+  <rect x="21" y="3" width="6" height="9" rx="1.5" transform="rotate(0 24 24)"/>
+  <rect x="21" y="3" width="6" height="9" rx="1.5" transform="rotate(45 24 24)"/>
+  <rect x="21" y="3" width="6" height="9" rx="1.5" transform="rotate(90 24 24)"/>
+  <rect x="21" y="3" width="6" height="9" rx="1.5" transform="rotate(135 24 24)"/>
+  <rect x="21" y="3" width="6" height="9" rx="1.5" transform="rotate(180 24 24)"/>
+  <rect x="21" y="3" width="6" height="9" rx="1.5" transform="rotate(225 24 24)"/>
+  <rect x="21" y="3" width="6" height="9" rx="1.5" transform="rotate(270 24 24)"/>
+  <rect x="21" y="3" width="6" height="9" rx="1.5" transform="rotate(315 24 24)"/>
+  <path fill-rule="evenodd" d="M24 9a15 15 0 1 0 0.001 0zM24 18a6 6 0 1 1-0.001 0z"/>
+ </g>
+</svg>
