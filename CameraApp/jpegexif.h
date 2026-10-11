@@ -61,11 +61,13 @@ struct Location {
 };
 
 /*
- * `exif` (a payload as above; empty for none) with the GPS position and/or
- * the orientation set, everything else kept. orientation is an EXIF value
- * 1..8, or 0 to leave it alone. Empty on failure.
+ * `exif` (a payload as above; empty for none) with the GPS position, the
+ * orientation and/or the exposure bias set, everything else kept. orientation
+ * is an EXIF value 1..8, or 0 to leave it alone; exposureBias is in EV, to
+ * the hundredth, or null to leave it alone. Empty on failure.
  */
-QByteArray edited(const QByteArray &exif, const Location *location, int orientation);
+QByteArray edited(const QByteArray &exif, const Location *location, int orientation,
+                  const double *exposureBias = nullptr);
 
 } // namespace JpegExif
 

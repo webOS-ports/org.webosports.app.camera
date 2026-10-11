@@ -208,3 +208,62 @@ TEST(Edited, QtHonoursTheOrientation)
     reader.setAutoTransform(true);
     EXPECT_EQ(reader.read().size(), QSize(48, 64));
 }
+
+/* An EXIF block with ExposureBiasValue set, as the Q25's HAL writes it: its
+ * step count, +10 for +2 EV. */
+static QByteArray cameraExifWithBias(ExifSRational bias)
+{
+    ExifData *camera = exif_data_new();
+    exif_data_set_byte_order(camera, EXIF_BYTE_ORDER_MOTOROLA);
+    exif_data_fix(camera);
+    ExifEntry *e = exif_entry_new();
+    exif_content_add_entry(camera->ifd[EXIF_IFD_EXIF], e);
+    exif_entry_initialize(e, EXIF_TAG_EXPOSURE_BIAS_VALUE);
+    exif_set_srational(e->data, EXIF_BYTE_ORDER_MOTOROLA, bias);
+    unsigned char *raw = nullptr;
+    unsigned int size = 0;
+    exif_data_save_data(camera, &raw, &size);
+    const QByteArray out(reinterpret_cast<const char *>(raw), qsizetype(size));
+    free(raw);
+    exif_entry_unref(e);
+    exif_data_unref(camera);
+    return out;
+}
+
+static double exposureBias(ExifData *d)
+{
+    const ExifEntry *e = exif_content_get_entry(d->ifd[EXIF_IFD_EXIF], EXIF_TAG_EXPOSURE_BIAS_VALUE);
+    if (!e)
+        return std::nan("");
+    const ExifSRational r = exif_get_srational(e->data, exif_data_get_byte_order(d));
+    return r.denominator ? double(r.numerator) / r.denominator : std::nan("");
+}
+
+TEST(Edited, ReplacesTheHalsExposureBias)
+{
+    const double applied = 2.0;
+    ExifData *d = parse(edited(cameraExifWithBias({ 10, 1 }), nullptr, 0, &applied));
+    ASSERT_NE(d, nullptr);
+    EXPECT_NEAR(exposureBias(d), 2.0, 1e-9);
+    exif_data_unref(d);
+
+    const double negative = -0.7;
+    d = parse(edited(QByteArray(), nullptr, 0, &negative));
+    ASSERT_NE(d, nullptr);
+    EXPECT_NEAR(exposureBias(d), -0.7, 1e-9);
+    exif_data_unref(d);
+}
+
+TEST(Edited, LeavesTheExposureBiasAloneWhenNotGiven)
+{
+    ExifData *d = parse(edited(cameraExifWithBias({ 10, 1 }), nullptr, 6));
+    ASSERT_NE(d, nullptr);
+    EXPECT_NEAR(exposureBias(d), 10.0, 1e-9);
+    exif_data_unref(d);
+}
+
+TEST(Edited, RefusesAnExposureBiasThatIsNoNumber)
+{
+    const double nan = std::nan("");
+    EXPECT_TRUE(edited(QByteArray(), nullptr, 0, &nan).isEmpty());
+}

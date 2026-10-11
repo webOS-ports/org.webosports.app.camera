@@ -29,6 +29,9 @@
  *   the HAL hands over the sensor's frame with Orientation 1, so without
  *   this a portrait photo shows up on its side.
  * - "latitude", "longitude" (and "altitude"): where it was taken, as EXIF GPS.
+ * - "exposureBias": the exposure compensation the camera applied, in EV,
+ *   written as the EXIF ExposureBiasValue. The Q25's HAL writes its internal
+ *   step count there (+10 for +2 EV).
  * - "zoom": a digital zoom the camera did not apply (the libcamera path only
  *   scales its viewfinder), carried out by cropping the centre. The EXIF block
  *   is kept.

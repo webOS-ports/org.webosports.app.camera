@@ -207,6 +207,18 @@ bool setOrientation(ExifData *exif, int orientation)
     return true;
 }
 
+bool setExposureBias(ExifData *exif, double ev)
+{
+    if (!std::isfinite(ev) || std::fabs(ev) > 1000.0)
+        return false;
+    ExifEntry *e = newEntry(exif, EXIF_IFD_EXIF, EXIF_TAG_EXPOSURE_BIAS_VALUE, EXIF_FORMAT_SRATIONAL, 1);
+    if (!e)
+        return false;
+    const ExifSRational bias = { static_cast<ExifSLong>(std::lround(ev * 100.0)), 100 };
+    exif_set_srational(e->data, exif_data_get_byte_order(exif), bias);
+    return true;
+}
+
 QByteArray save(ExifData *exif)
 {
     unsigned char *data = nullptr;
@@ -293,7 +305,8 @@ int orientationForRotation(int clockwise)
     }
 }
 
-QByteArray edited(const QByteArray &exif, const Location *location, int orientation)
+QByteArray edited(const QByteArray &exif, const Location *location, int orientation,
+                  const double *exposureBias)
 {
     ExifData *data = exif.isEmpty()
         ? exif_data_new()
@@ -311,6 +324,8 @@ QByteArray edited(const QByteArray &exif, const Location *location, int orientat
         ok = setLocation(data, *location);
     if (ok && orientation >= 1 && orientation <= 8)
         ok = setOrientation(data, orientation);
+    if (ok && exposureBias)
+        ok = setExposureBias(data, *exposureBias);
 
     QByteArray out = ok ? save(data) : QByteArray();
     /* A HAL's embedded thumbnail can push the block past what one segment

@@ -171,6 +171,8 @@ WebOSWindow {
             return;
         }
         var options = { rotation: cameraViewItem.recordingRotation };
+        if (cameraViewItem.useDroidCamera && DroidCameraFactory.controlsReady)
+            options.exposureBias = DroidCameraFactory.appliedExposureCompensation();
         var where = currentLocation();
         if (where) {
             options.latitude = where.latitude;

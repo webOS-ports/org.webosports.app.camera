@@ -119,8 +119,14 @@ bool ImageTools::processFile(const QString &path, const QVariantMap &options, QS
         ? JpegExif::orientationForRotation(options.value(QStringLiteral("rotation")).toInt())
         : 0;
 
-    if (hasLocation || orientation || zoom > 1.001) {
-        const QByteArray newExif = JpegExif::edited(exif, hasLocation ? &location : nullptr, orientation);
+    /* The exposure compensation the camera applied, in EV. Some HALs (the
+     * Q25's) write their internal step count there instead. */
+    const bool hasExposureBias = options.contains(QStringLiteral("exposureBias"));
+    const double exposureBias = options.value(QStringLiteral("exposureBias")).toDouble();
+
+    if (hasLocation || orientation || zoom > 1.001 || hasExposureBias) {
+        const QByteArray newExif = JpegExif::edited(exif, hasLocation ? &location : nullptr, orientation,
+                                                    hasExposureBias ? &exposureBias : nullptr);
         if (newExif.isEmpty()) {
             *error = QStringLiteral("cannot write the EXIF data");
             return false;

@@ -80,6 +80,26 @@ TEST(ImageTools, TurnsAndTags)
     exif_data_unref(d);
 }
 
+/* The exposure the camera applied goes in, even with nothing else to do. */
+TEST(ImageTools, WritesTheAppliedExposure)
+{
+    QTemporaryDir dir;
+    const QString path = writePhoto(dir, "e.jpg");
+    QString error;
+    ASSERT_TRUE(ImageTools::processFile(path, { { "exposureBias", -1.5 } }, &error)) << error.toStdString();
+
+    const QByteArray exif = JpegExif::exifSegment(readAll(path));
+    ExifData *d = exif_data_new_from_data(reinterpret_cast<const unsigned char *>(exif.constData()),
+                                          static_cast<unsigned int>(exif.size()));
+    ASSERT_NE(d, nullptr);
+    const ExifEntry *e = exif_content_get_entry(d->ifd[EXIF_IFD_EXIF], EXIF_TAG_EXPOSURE_BIAS_VALUE);
+    ASSERT_NE(e, nullptr);
+    const ExifSRational r = exif_get_srational(e->data, exif_data_get_byte_order(d));
+    EXPECT_EQ(r.numerator, -150);
+    EXPECT_EQ(r.denominator, 100);
+    exif_data_unref(d);
+}
+
 TEST(ImageTools, CropsTheMiddleAndKeepsTheExif)
 {
     QTemporaryDir dir;
