@@ -908,8 +908,15 @@ Item {
             }
         }
     }
+    // Where the picture is, in this item's (and the window's) coordinates: the
+    // VideoOutput fills the item and fits the frame in, leaving black strips.
+    readonly property rect pictureRect: videoOutputView.contentRect
+
     GridLines {
-        anchors.fill: parent
+        x: cameraViewRoot.pictureRect.x
+        y: cameraViewRoot.pictureRect.y
+        width: cameraViewRoot.pictureRect.width
+        height: cameraViewRoot.pictureRect.height
         visible: prefs.gridEnabled
     }
 

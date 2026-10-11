@@ -50,6 +50,20 @@ Item {
         return landscape ? "right" : "bottom";
     }
     readonly property bool barUpright: barSide !== "bottom"
+
+    /* Where the controls go. The picture leaves black strips beside or above it;
+     * a strip wide enough for a control (the Q25's, 132 px either side) holds
+     * the controls at the window's edge, a narrow one (the Pixel 3a's, 54 px)
+     * would leave them half on the picture, so they go to the picture's edge. */
+    readonly property rect picture: cameraView && cameraView.pictureRect.width > 0
+                                    ? cameraView.pictureRect : Qt.rect(0, 0, width, height)
+    readonly property real roomForControl: Units.gu(8)
+    readonly property real areaLeft: picture.x >= roomForControl ? 0 : picture.x
+    readonly property real areaRight: width - (picture.x + picture.width) >= roomForControl
+                                      ? width : picture.x + picture.width
+    readonly property real areaTop: picture.y >= roomForControl ? 0 : picture.y
+    readonly property real areaBottom: height - (picture.y + picture.height) >= roomForControl
+                                       ? height : picture.y + picture.height
     // The bar is 100 px deep.
     readonly property real barDepth: Units.gu(12.5)
 
@@ -203,12 +217,14 @@ Item {
     Item {
         id: bar
 
-        width: overlay.barUpright ? overlay.height : overlay.width
+        width: overlay.barUpright ? overlay.areaBottom - overlay.areaTop
+                                  : overlay.areaRight - overlay.areaLeft
         height: overlay.barDepth
         rotation: overlay.barSide === "right" ? -90 : overlay.barSide === "left" ? 90 : 0
-        x: overlay.barSide === "right" ? overlay.width - height / 2 - width / 2
-         : overlay.barSide === "left" ? height / 2 - width / 2 : 0
-        y: overlay.barUpright ? overlay.height / 2 - height / 2 : overlay.height - height
+        x: overlay.barSide === "right" ? overlay.areaRight - height / 2 - width / 2
+         : overlay.barSide === "left" ? overlay.areaLeft + height / 2 - width / 2 : overlay.areaLeft
+        y: overlay.barUpright ? (overlay.areaTop + overlay.areaBottom) / 2 - height / 2
+                              : overlay.areaBottom - height
 
         readonly property real upright: -rotation
 
@@ -342,10 +358,8 @@ Item {
     // Both corner buttons are the bar's black button with a white icon on it.
     SpriteButton {
         id: settingsButton
-        anchors {
-            top: parent.top; left: parent.left; margins: Units.gu(1.5)
-            leftMargin: overlay.barSide === "left" ? overlay.barDepth + Units.gu(1.5) : Units.gu(1.5)
-        }
+        x: overlay.areaLeft + (overlay.barSide === "left" ? overlay.barDepth : 0) + Units.gu(1.5)
+        y: overlay.areaTop + Units.gu(1.5)
         width: Units.gu(6.25)
         height: width
         source: Qt.resolvedUrl("images/legacy/blank-button.png")
@@ -366,10 +380,8 @@ Item {
     SpriteButton {
         id: flipButton
         // Clear of the bar when it runs down the right edge.
-        anchors {
-            top: parent.top; right: parent.right; margins: Units.gu(1.5)
-            rightMargin: overlay.barSide === "right" ? overlay.barDepth + Units.gu(1.5) : Units.gu(1.5)
-        }
+        x: overlay.areaRight - (overlay.barSide === "right" ? overlay.barDepth : 0) - Units.gu(1.5) - width
+        y: overlay.areaTop + Units.gu(1.5)
         width: Units.gu(6.25)
         height: width
         source: Qt.resolvedUrl("images/legacy/blank-button.png")
