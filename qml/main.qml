@@ -35,50 +35,11 @@ WebOSWindow {
     }
 
     /* The status bar's app menu draws nothing itself: it relaunches the app
-     * with this command and the app puts up its own menu. */
-    function handleLaunchParams(params) {
-        if (!params)
-            return;
-        var command = params["palm-command"] || (params.params ? params.params["palm-command"] : undefined);
-        if (command === "open-app-menu")
-            appMenu.popup(0, 0);
-    }
-
-    /* qml-runner, which starts this app, hands the parameters over as the
-     * window's launchParams, at launch and again on every relaunch; the
-     * "application" object below only exists under the older launcher.
-     * launchParams only notifies when it changes, and opening the app menu
-     * twice relaunches with the same parameters, so it is cleared once
-     * handled and the next one is a change again. */
-    function handleLaunchString(text) {
-        if (!text)
-            return;
-        try {
-            handleLaunchParams(JSON.parse(text));
-        } catch (error) {
-            console.warn("Could not parse launch parameters: " + error);
-        }
-        root.launchParams = "";
-    }
-
-    onLaunchParamsChanged: handleLaunchString(root.launchParams)
-
-    Component.onCompleted: {
-        if (root.launchParams)
-            handleLaunchString(root.launchParams);
-        else if (typeof application !== "undefined")
-            handleLaunchString(application.launchParameters);
-    }
-
-    Connections {
-        target: typeof application !== "undefined" ? application : null
-        function onRelaunched(parameters) {
-            try {
-                root.handleLaunchParams(JSON.parse(parameters));
-            } catch (error) {
-                console.warn("Could not parse relaunch parameters: " + error);
-            }
-        }
+     * with "palm-command": "open-app-menu" and the app puts up its own
+     * menu. LaunchParams reads that off qml-runner's window launchParams. */
+    LaunchParams {
+        window: root
+        onAppMenuRequested: appMenu.popup(0, 0)
     }
 
     Menu {
