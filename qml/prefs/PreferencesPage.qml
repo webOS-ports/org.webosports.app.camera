@@ -33,18 +33,14 @@ AppPage {
         z: -1
     }
 
+    // Done sits at the foot, as in every webOS preferences scene
+    footer: DoneBar { onClicked: page.closed() }
+
     header: AppHeader {
         height: Units.gu(7.5)
         title: qsTr("Camera Preferences")
         icon: Qt.resolvedUrl("../../icon.png")
         compact: width < Units.gu(50)
-        actionComponent: Component {
-            Button {
-                text: qsTr("Done")
-                LuneOSButton.mainColor: LuneOSButton.affirmativeColor
-                onClicked: page.closed()
-            }
-        }
     }
 
     SettingsPageContent {
