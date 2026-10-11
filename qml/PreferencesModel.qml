@@ -43,6 +43,8 @@ Settings {
     property string flickerMode: "auto"
     property int isoSpeed: 0
     property real exposureCompensation: 0
+    // JPEG quality for photos from the droid camera: 85, 90 (droidcamsrc's own default) or 95.
+    property int jpegQuality: 90
     property bool hdrEnabled: false
     property bool zslEnabled: true
 

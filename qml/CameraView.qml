@@ -250,6 +250,23 @@ Item {
     Binding { when: useDroidCamera; target: DroidCameraFactory; property: "flickerMode"; value: prefs.flickerMode }
     Binding { when: useDroidCamera; target: DroidCameraFactory; property: "isoSpeed"; value: prefs.isoSpeed }
     Binding { when: useDroidCamera; target: DroidCameraFactory; property: "exposureCompensation"; value: prefs.exposureCompensation }
+    Binding { when: useDroidCamera; target: DroidCameraFactory; property: "jpegQuality"; value: prefs.jpegQuality }
+    // A saved exposure between two of the camera's steps (a third of an EV was
+    // the slider's step before it knew the camera's) goes to the nearest one,
+    // so what the slider shows is what the camera applies.
+    Connections {
+        target: useDroidCamera ? DroidCameraFactory : null
+        function onControlsChanged() {
+            var f = DroidCameraFactory;
+            var step = f.exposureCompensationStep;
+            if (!f.controlsReady || !(step > 0) || !prefs)
+                return;
+            var snapped = Math.round(prefs.exposureCompensation / step) * step;
+            snapped = Math.max(f.minimumExposureCompensation, Math.min(f.maximumExposureCompensation, snapped));
+            if (Math.abs(snapped - prefs.exposureCompensation) > 1e-6)
+                prefs.exposureCompensation = snapped;
+        }
+    }
     // The HAL's HDR merge is for stills.
     Binding { when: useDroidCamera; target: DroidCameraFactory; property: "hdrEnabled"
               value: prefs.hdrEnabled && prefs.captureMode === PreferencesModel.CaptureStillImage }

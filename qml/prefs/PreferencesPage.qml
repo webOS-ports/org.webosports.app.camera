@@ -98,10 +98,21 @@ Rectangle {
                 PrefsChoiceRow {
                     theme: prefsTheme
                     label: qsTr("Self-timer")
-                    values: [0, 3, 10, 15]
-                    labels: [qsTr("Off"), qsTr("3 seconds"), qsTr("10 seconds"), qsTr("15 seconds")]
+                    values: [0, 3, 5, 10, 15, 30, 60]
+                    labels: [qsTr("Off"), qsTr("3 seconds"), qsTr("5 seconds"), qsTr("10 seconds"),
+                             qsTr("15 seconds"), qsTr("30 seconds"), qsTr("1 minute")]
                     value: prefs.selfTimerDelay
                     onChosen: (v) => prefs.selfTimerDelay = v
+                }
+                PrefsChoiceRow {
+                    theme: prefsTheme
+                    label: qsTr("Picture quality")
+                    // The JPEG quality droidcamsrc saves with; not offered elsewhere.
+                    visible: DroidCameraFactory.available
+                    values: [85, 90, 95]
+                    labels: [qsTr("Normal"), qsTr("High"), qsTr("Best")]
+                    value: prefs.jpegQuality
+                    onChosen: (v) => prefs.jpegQuality = v
                 }
                 PrefsSwitchRow {
                     theme: prefsTheme
@@ -187,13 +198,19 @@ Rectangle {
                     visible: DroidCameraFactory.maximumExposureCompensation > DroidCameraFactory.minimumExposureCompensation
                     from: DroidCameraFactory.minimumExposureCompensation
                     to: DroidCameraFactory.maximumExposureCompensation
-                    stepSize: 1 / 3
+                    // Only the values the camera takes: whole multiples of its step
+                    // (0.5 EV on the Q25), a third of an EV where it reports none.
+                    readonly property real evStep: DroidCameraFactory.exposureCompensationStep > 0
+                                                   ? DroidCameraFactory.exposureCompensationStep : 1 / 3
+                    function snap(v) { return Math.round(v / evStep) * evStep; }
+                    stepSize: evStep
                     value: prefs.exposureCompensation
                     format: function(v) {
-                        var r = Math.round(v * 3) / 3;
-                        return (r > 0 ? "+" : "") + r.toFixed(1) + " EV";
+                        var r = snap(v);
+                        var tenths = Math.abs(r * 10 - Math.round(r * 10)) < 1e-6;
+                        return (r > 0 ? "+" : "") + r.toFixed(tenths ? 1 : 2) + " EV";
                     }
-                    onMoved: (v) => prefs.exposureCompensation = Math.round(v * 3) / 3
+                    onMoved: (v) => prefs.exposureCompensation = snap(v)
                 }
                 PrefsChoiceRow {
                     theme: prefsTheme
