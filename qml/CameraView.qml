@@ -336,6 +336,42 @@ Item {
         return prefs.position === CameraDevice.FrontFace ? 1 : 0;
     }
 
+    // The cameras on the side currently shown (same facing), in HAL order, for
+    // the lens selector: a phone with a wide + tele (or ultra-wide) on one side
+    // lists more than one here, and CaptureOverlay offers a button to cycle
+    // them. Empty off the droid path (libcamera has no second-sensor concept
+    // wired up here yet).
+    readonly property var sameSideDroidCameras: {
+        if (!useDroidCamera || !prefs)
+            return [];
+        var facing = activePosition === CameraDevice.FrontFace ? "front" : "back";
+        var list = [];
+        for (var i = 0; i < droidCameras.length; ++i) {
+            if (droidCameras[i].facing === facing)
+                list.push(droidCameras[i]);
+        }
+        return list;
+    }
+
+    // Switch to the next camera on the current side, wrapping round. Writing
+    // prefs.droidCameraIndex is all it takes: droidCameraDevice picks it up and
+    // onDroidCameraDeviceChanged re-opens the sensor. The front/back switch is
+    // unchanged, so this only moves within the side already shown.
+    function cycleDroidCamera() {
+        var list = sameSideDroidCameras;
+        if (!prefs || list.length < 2)
+            return;
+        var cur = droidCameraDevice;
+        var pos = 0;
+        for (var i = 0; i < list.length; ++i) {
+            if (list[i].index === cur) {
+                pos = i;
+                break;
+            }
+        }
+        prefs.droidCameraIndex = list[(pos + 1) % list.length].index;
+    }
+
     // QVideoFrameFormat::PixelFormat is not reachable from QML in Qt 6.12 -
     // VideoFrameFormat, CameraFormat and QVideoFrameFormat are all undefined
     // here - so the values we need are spelled out. Best first. Format_Y8 (24)
