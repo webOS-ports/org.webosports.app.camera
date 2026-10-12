@@ -4,6 +4,7 @@ import QtQuick.Controls.LuneOS 2.0
 import Eos.Window 0.1
 
 import LuneOS.Service 1.0
+import LuneOS.System 1.0
 import LuneOS.Camera 1.0
 import CameraApp 0.1
 
@@ -34,34 +35,11 @@ WebOSWindow {
     }
 
     /* The status bar's app menu draws nothing itself: it relaunches the app
-     * with this command and the app puts up its own menu. */
-    function handleLaunchParams(params) {
-        if (!params)
-            return;
-        var command = params["palm-command"] || (params.params ? params.params["palm-command"] : undefined);
-        if (command === "open-app-menu")
-            appMenu.popup(0, 0);
-    }
-
-    Component.onCompleted: {
-        if (typeof application !== "undefined") {
-            try {
-                handleLaunchParams(JSON.parse(application.launchParameters));
-            } catch (error) {
-                console.warn("Could not parse launch parameters: " + error);
-            }
-        }
-    }
-
-    Connections {
-        target: typeof application !== "undefined" ? application : null
-        function onRelaunched(parameters) {
-            try {
-                root.handleLaunchParams(JSON.parse(parameters));
-            } catch (error) {
-                console.warn("Could not parse relaunch parameters: " + error);
-            }
-        }
+     * with "palm-command": "open-app-menu" and the app puts up its own
+     * menu. LaunchParams reads that off qml-runner's window launchParams. */
+    LaunchParams {
+        window: root
+        onAppMenuRequested: appMenu.popup(0, 0)
     }
 
     Menu {
@@ -79,16 +57,23 @@ WebOSWindow {
         }
     }
 
-    function openPhotos() {
-        lunaService.call("luna://com.webos.service.applicationmanager/launch",
-                         JSON.stringify({ id: "org.webosports.app.photos" }), undefined,
-                         function(error) { console.warn("Could not open Photos: " + error); });
+    // Needs "application.launcher" and, for open, "appmanager.management"
+    // in sysbus/org.webosports.app.camera.perm.json.
+    AppLauncher {
+        id: launcher
+        clientName: "org.webosports.app.camera"
     }
 
+    function openPhotos() {
+        launcher.launch("org.webosports.app.photos", null, undefined,
+                        function(error) { console.warn("Could not open Photos: " + error); });
+    }
+
+    // The OSE application manager has no "open"; AppLauncher sends it to the
+    // one that does, which hands the URL to whatever handles it.
     function openUrl(url) {
-        lunaService.call("luna://com.webos.service.applicationmanager/open",
-                         JSON.stringify({ target: url }), undefined,
-                         function(error) { console.warn("Could not open " + url + ": " + error); });
+        launcher.open(url, undefined,
+                      function(error) { console.warn("Could not open " + url + ": " + error); });
     }
 
     /* Where the phone is, for geotags. Only asked while tagging is on and the

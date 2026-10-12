@@ -9,6 +9,7 @@ import CameraApp 0.1
 import LuneOS.Camera 1.0
 import LuneOS.Service 1.0
 import "components"
+import LuneOS.System 1.0
 
 Item {
     id: cameraViewRoot
@@ -84,18 +85,11 @@ Item {
     readonly property bool squareScreen: Math.abs(Screen.width - Screen.height)
                                          < 0.05 * Math.max(Screen.width, Screen.height)
     property int shellRotationLock: 400
-    LunaService {
-        id: preferencesService
-        name: "org.webosports.app.camera"
-        onInitialized: preferencesService.subscribe(
-            "luna://com.webos.service.systemservice/getPreferences",
-            JSON.stringify({ "keys": ["rotationLock"], "subscribe": true }),
-            function (message) {
-                var response = JSON.parse(message.payload);
-                if (response.hasOwnProperty("rotationLock"))
-                    cameraViewRoot.shellRotationLock = response.rotationLock;
-            },
-            function (error) { console.warn("rotationLock preference: " + JSON.stringify(error)); })
+    SystemPreferences {
+        clientName: "org.webosports.app.camera"
+        keys: ["rotationLock"]
+        onChanged: (key, value) => cameraViewRoot.shellRotationLock = value
+        onError: (message) => console.warn("rotationLock preference: " + message)
     }
     readonly property int screenRotation: {
         if (squareScreen) {

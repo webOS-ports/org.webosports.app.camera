@@ -17,6 +17,7 @@
 
 import QtQuick
 import LuneOS.Service 1.0
+import LuneOS.System 1.0
 
 /*
  * Says so when the camera is off because the hardware privacy switch is on.
@@ -56,27 +57,27 @@ Item {
     LunaService {
         id: killSwitchService
         name: "org.webosports.app.camera"
+    }
 
-        onInitialized: {
-            killSwitchService.subscribe("luna://com.palm.bus/signal/registerServerStatus",
-                                        JSON.stringify({"serviceName": "org.webosports.service.killswitch"}),
-                                        handleServiceStatus, handleError);
+    ServiceStatus {
+        serviceName: "org.webosports.service.killswitch"
+        clientName: "org.webosports.app.camera"
+        onKnownChanged: if (known && !available) notice.serviceGone()
+        onAvailableChanged: {
+            if (available)
+                killSwitchService.subscribe("luna://org.webosports.service.killswitch/getStatus",
+                                            JSON.stringify({"subscribe": true}),
+                                            handleStatus, handleError);
+            else
+                notice.serviceGone();
         }
     }
 
-    function handleServiceStatus(message) {
-        var response = JSON.parse(message.payload);
-        if (response.connected !== true) {
-            /* No service, no claim. A device with no switches must not have the
-             * camera app permanently telling it the camera is blocked. */
-            notice.blocked = false;
-            notice.hardwarePending = false;
-            return;
-        }
-
-        killSwitchService.subscribe("luna://org.webosports.service.killswitch/getStatus",
-                                    JSON.stringify({"subscribe": true}),
-                                    handleStatus, handleError);
+    /* No service, no claim. A device with no switches must not have the
+     * camera app permanently telling it the camera is blocked. */
+    function serviceGone() {
+        notice.blocked = false;
+        notice.hardwarePending = false;
     }
 
     function handleStatus(message) {
