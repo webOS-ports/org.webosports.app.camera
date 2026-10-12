@@ -401,6 +401,41 @@ Item {
         }
     }
 
+    // Lens selector: switch between the cameras on the side currently shown
+    // (e.g. the wide and the telephoto on the back). Only appears when this
+    // side has more than one, below the Front/Back button. The badge shows
+    // which of them is live (e.g. "1/2").
+    SpriteButton {
+        id: lensButton
+        readonly property var sideCams: (overlay.cameraView && overlay.cameraView.sameSideDroidCameras)
+                                        ? overlay.cameraView.sameSideDroidCameras : []
+        readonly property int activeDevice: overlay.cameraView ? overlay.cameraView.droidCameraDevice : -1
+        visible: sideCams.length > 1 && !overlay.recording
+        x: flipButton.x
+        y: flipButton.y + flipButton.height + Units.gu(1.5)
+        width: Units.gu(6.25)
+        height: width
+        source: Qt.resolvedUrl("images/legacy/blank-button.png")
+        frames: 2
+        onClicked: if (overlay.cameraView) overlay.cameraView.cycleDroidCamera()
+
+        Text {
+            anchors.centerIn: parent
+            color: "white"
+            font.bold: true
+            font.pixelSize: Units.gu(2)
+            // 1-based position of the active camera within this side's list.
+            text: {
+                var cams = lensButton.sideCams;
+                for (var i = 0; i < cams.length; ++i) {
+                    if (cams[i].index === lensButton.activeDevice)
+                        return (i + 1) + "/" + cams.length;
+                }
+                return cams.length > 1 ? ("1/" + cams.length) : "";
+            }
+        }
+    }
+
     // What is switched on that changes the picture, beside the settings button.
     // Tapping one switches it off again.
     Row {
