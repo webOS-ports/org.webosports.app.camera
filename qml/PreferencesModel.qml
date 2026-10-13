@@ -4,6 +4,7 @@ import QtMultimedia
 
 // Qualified: QtCore has a Settings type of its own, which this file is.
 import LunaNext.Common 0.1 as Common
+import "DeviceCamera.js" as DeviceCamera
 
 /*
  * The camera's preferences, kept across launches.
@@ -64,8 +65,16 @@ Settings {
     // along the long edge for landscape use, a quarter turn away, hence 270
     // (90 showed the image upside down). Once measured and added to the PT2 DT
     // these fallbacks can go.
-    readonly property int backSensorRotation: Common.Settings.tabletUi ? 270 : 0
-    readonly property int frontSensorRotation: Common.Settings.tabletUi ? 270 : 0
+    //
+    // A device whose camera HAL reports its mounting wrongly sets it in its
+    // adaptation instead (DeviceCamera.js, shadowed by luneos-device-config).
+    // Measured on the Titan Pocket: its back camera needs 180, the front 0.
+    readonly property int backSensorRotation: DeviceCamera.backRotation >= 0
+                                              ? DeviceCamera.backRotation
+                                              : (Common.Settings.tabletUi ? 270 : 0)
+    readonly property int frontSensorRotation: DeviceCamera.frontRotation >= 0
+                                               ? DeviceCamera.frontRotation
+                                               : (Common.Settings.tabletUi ? 270 : 0)
 
     // The flash and the HAL's HDR merge do not go together: one flash cannot
     // light every frame of a merge, and HALs refuse the combination.
