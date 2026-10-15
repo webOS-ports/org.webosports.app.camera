@@ -1,0 +1,28 @@
+{
+    "cx": 58.625,
+    "cy": 60.0625,
+    "layers": [
+        {
+            "r": 55.5625,
+            "shape": "disc",
+            "stops": 64
+        },
+        {
+            "r": 55.8125,
+            "ri": 55.125,
+            "shape": "ring",
+            "stops": 32
+        }
+    ],
+    "out": "../../../qml/images/bezel.svg",
+    "passes": 0,
+    "png": "../reference/menu-bezel-camcorder.png",
+    "refine": [
+        "cx",
+        "cy",
+        "radii"
+    ],
+    "rounds": 4,
+    "split": 59.5,
+    "stops": 48
+}

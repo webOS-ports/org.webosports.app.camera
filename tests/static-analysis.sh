@@ -66,7 +66,7 @@ if have clang++; then
 fi
 if have clang-tidy; then
 	out=$(clang-tidy -quiet --checks='-*,clang-analyzer-*,bugprone-*,cert-*,concurrency-*,performance-*,-bugprone-easily-swappable-parameters,-cert-err58-cpp' \
-		$SOURCES -- $FLAGS 2>&1)
+		$SOURCES -- $FLAGS --target=$TRIPLE 2>&1)
 	report clang-tidy "$out"
 fi
 if have cppcheck; then

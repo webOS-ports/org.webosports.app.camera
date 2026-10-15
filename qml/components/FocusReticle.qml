@@ -1,8 +1,9 @@
-import QtQuick 2.6
+import QtQuick
 
 import LunaNext.Common 0.1
 
 import LuneOS.Camera 1.0
+import LuneOS.Components 1.0
 
 /*
  * The legacy camera's viewfinder mark: corner brackets at rest, the green
@@ -19,26 +20,26 @@ Item {
     width: Units.gu(12.5)
     height: width
 
-    Image {
+    ArtworkImage {
         anchors.fill: parent
-        source: "../images/legacy/view-finder.png"
+        svg: Qt.resolvedUrl("../images/view-finder.svg")
         opacity: reticle.focusStatus === DroidCameraFactory.FocusIdle
                  || reticle.focusStatus === DroidCameraFactory.FocusFailed ? 1 : 0
     }
 
-    Image {
+    ArtworkImage {
         id: focusing
         anchors.fill: parent
-        source: "../images/legacy/view-finder-autofocus.png"
+        svg: Qt.resolvedUrl("../images/view-finder-autofocus.svg")
         opacity: reticle.focusStatus === DroidCameraFactory.FocusRunning ? 1 : 0
         // The legacy focusing circle closed in on the subject.
         scale: opacity > 0 ? 0.8 : 1.0
         Behavior on scale { NumberAnimation { duration: 400; easing.type: Easing.OutQuad } }
     }
 
-    Image {
+    ArtworkImage {
         anchors.fill: parent
-        source: "../images/legacy/view-finder-autofocus-lock.png"
+        svg: Qt.resolvedUrl("../images/view-finder-autofocus-lock.svg")
         opacity: reticle.focusStatus === DroidCameraFactory.FocusSucceeded ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 200 } }
     }

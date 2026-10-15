@@ -1,0 +1,144 @@
+{
+    "crop": [
+        0,
+        120,
+        120,
+        120
+    ],
+    "cx": 60,
+    "cy": 60.09375,
+    "layers": [
+        {
+            "cx": 60,
+            "cy": 63.75,
+            "fill": "radial",
+            "r": 60.0313,
+            "shape": "disc",
+            "stops": 24
+        },
+        {
+            "half": "top",
+            "r": 46.85,
+            "shape": "disc",
+            "stops": 48,
+            "smooth": 0.1
+        },
+        {
+            "half": "bottom",
+            "r": 46.5376,
+            "shape": "disc",
+            "stops": 48,
+            "smooth": 0.1
+        },
+        {
+            "cx": 58.0626,
+            "cy": 62.6563,
+            "fill": "radial",
+            "r": 43.5,
+            "shape": "disc",
+            "stops": 10,
+            "smooth": 0.5
+        },
+        {
+            "cx": 60,
+            "cy": 60.125,
+            "fade": true,
+            "fill": "radial",
+            "r": 42,
+            "shape": "disc",
+            "stops": 10,
+            "smooth": 0.5
+        },
+        {
+            "cx": 59.8553,
+            "cy": 59.6004,
+            "gap": 3.0271,
+            "hex": 11.1686,
+            "mirror": true,
+            "phi": 15.3203,
+            "r": 31.6178,
+            "shape": "aperture",
+            "stops": 12,
+            "smooth": 0.5
+        },
+        {
+            "cx": 59.8553,
+            "cy": 59.6004,
+            "gap": 3.0584,
+            "half": "top",
+            "hex": 11.1686,
+            "mirror": true,
+            "phi": 15.3203,
+            "r": 31.6178,
+            "shape": "aperture",
+            "stops": 10,
+            "smooth": 0.5
+        },
+        {
+            "half": "top",
+            "r": 42,
+            "shape": "disc",
+            "stops": 12,
+            "smooth": 0.5
+        },
+        {
+            "r": 42,
+            "ri": 39.4375,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 43.0625,
+            "ri": 41.3125,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 44.125,
+            "ri": 42.6875,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 44.6563,
+            "ri": 43.5,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 46.3125,
+            "ri": 44.125,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 46.8751,
+            "ri": 45.4375,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 47.375,
+            "ri": 46.1875,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 48.0625,
+            "ri": 46.9375,
+            "shape": "ring",
+            "stops": 32
+        }
+    ],
+    "out": "../../../qml/images/shutter-pressed.svg",
+    "passes": 0,
+    "png": "../reference/capture-buttons.png",
+    "refine": [
+        "aperture",
+        "centres"
+    ],
+    "rounds": 6,
+    "split": 60,
+    "step": 0.125,
+    "stops": 20
+}

@@ -1,0 +1,81 @@
+{
+    "crop": [
+        0,
+        0,
+        74,
+        75
+    ],
+    "cx": 37,
+    "cy": 37.0625,
+    "layers": [
+        {
+            "cx": 37,
+            "cy": 38.75,
+            "fill": "radial",
+            "r": 37.8125,
+            "shape": "disc",
+            "stops": 20
+        },
+        {
+            "half": "top",
+            "r": 32.4375,
+            "shape": "disc",
+            "stops": 36
+        },
+        {
+            "half": "bottom",
+            "r": 32.4375,
+            "shape": "disc",
+            "stops": 36
+        },
+        {
+            "r": 31.5625,
+            "ri": 29.5625,
+            "shape": "ring",
+            "stops": 28
+        },
+        {
+            "r": 32.125,
+            "ri": 30.9375,
+            "shape": "ring",
+            "stops": 28
+        },
+        {
+            "r": 33,
+            "ri": 32.0313,
+            "shape": "ring",
+            "stops": 28
+        },
+        {
+            "r": 33.9375,
+            "ri": 32.5938,
+            "shape": "ring",
+            "stops": 28
+        },
+        {
+            "r": 34.4688,
+            "ri": 33.5,
+            "shape": "ring",
+            "stops": 28
+        },
+        {
+            "r": 35.0313,
+            "ri": 34,
+            "shape": "ring",
+            "stops": 28
+        }
+    ],
+    "out": "../../../qml/images/round-button.svg",
+    "passes": 0,
+    "png": "../reference/blank-button.png",
+    "refine": [
+        "cx",
+        "cy",
+        "radii",
+        "centres"
+    ],
+    "rounds": 10,
+    "split": 38,
+    "step": 0.125,
+    "stops": 20
+}

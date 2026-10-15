@@ -1,0 +1,124 @@
+{
+    "crop": [
+        0,
+        240,
+        120,
+        120
+    ],
+    "cx": 60,
+    "cy": 60.09375,
+    "layers": [
+        {
+            "cx": 60,
+            "cy": 64.5625,
+            "fill": "radial",
+            "r": 60.0313,
+            "shape": "disc",
+            "stops": 24
+        },
+        {
+            "half": "top",
+            "r": 46.85,
+            "shape": "disc",
+            "stops": 48
+        },
+        {
+            "half": "bottom",
+            "r": 46.5376,
+            "shape": "disc",
+            "stops": 48
+        },
+        {
+            "r": 42,
+            "ri": 39.4375,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 43.0625,
+            "ri": 41.3125,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 44.125,
+            "ri": 42.6875,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 44.6563,
+            "ri": 43.5,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 46.3125,
+            "ri": 44.125,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 46.8751,
+            "ri": 45.4375,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 47.375,
+            "ri": 46.1875,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 48.0625,
+            "ri": 46.9375,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "cx": 60,
+            "cy": 60.125,
+            "fill": "radial",
+            "r": 21.6375,
+            "shape": "disc",
+            "stops": 10
+        },
+        {
+            "cx": 60,
+            "cy": 60,
+            "half": "top",
+            "r": 19.475,
+            "shape": "disc",
+            "stops": 24
+        },
+        {
+            "cx": 60,
+            "cy": 60,
+            "half": "bottom",
+            "r": 19.4375,
+            "shape": "disc",
+            "stops": 24
+        },
+        {
+            "cx": 60,
+            "cy": 60.0625,
+            "fill": "radial",
+            "r": 19.475,
+            "shape": "disc",
+            "stops": 12
+        }
+    ],
+    "out": "../../../qml/images/record.svg",
+    "passes": 0,
+    "png": "../reference/capture-buttons.png",
+    "refine": [
+        "cy",
+        "radii",
+        "centres"
+    ],
+    "rounds": 12,
+    "split": 60,
+    "step": 0.0625,
+    "stops": 20
+}
