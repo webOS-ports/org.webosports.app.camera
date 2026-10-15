@@ -1,4 +1,4 @@
-import QtQuick 2.6
+import QtQuick
 import QtMultimedia
 
 import LunaNext.Common 0.1
@@ -6,6 +6,7 @@ import LuneOS.Service 1.0
 
 import CameraApp 0.1
 import LuneOS.Camera 1.0
+import LuneOS.Components 1.0
 import "components"
 
 /*
@@ -241,11 +242,11 @@ Item {
             rotation: bar.upright
             visible: !overlay.recording
 
-            Image {
+            ArtworkImage {
                 anchors.centerIn: parent
                 width: Units.gu(8.75)
                 height: width
-                source: "images/legacy/blank-thumbnail.png"
+                svg: Qt.resolvedUrl("images/blank-thumbnail.svg")
             }
             Image {
                 id: thumbnail
@@ -263,20 +264,18 @@ Item {
             }
             SpriteButton {
                 anchors.fill: parent
-                source: Qt.resolvedUrl("images/legacy/image-overlay.png")
-                frames: 2
+                image: "image-overlay"
                 onClicked: overlay.galleryButtonClicked()
             }
         }
 
         // The bezel behind the shutter, widened to hold the flash button when there is one.
         // Without a flash (a camera with no flash modes, or video) it is the round one.
-        Image {
+        ArtworkImage {
             id: bezel
             readonly property bool withFlash: !overlay.videoMode && overlay.flashButtonShown
             anchors.verticalCenter: parent.verticalCenter
-            source: withFlash ? "images/legacy/menu-bezel-camera.png"
-                              : "images/legacy/menu-bezel-camcorder.png"
+            svg: Qt.resolvedUrl(withFlash ? "images/menu-bezel-camera.svg" : "images/bezel.svg")
             width: withFlash ? Units.gu(16.6) : Units.gu(10)
             height: withFlash ? Units.gu(9.5) : Units.gu(10)
             x: withFlash ? bar.width / 2 - Units.gu(4.6) : bar.width / 2 - width / 2
@@ -288,9 +287,7 @@ Item {
             width: Units.gu(10)
             height: width
             rotation: bar.upright
-            source: Qt.resolvedUrl("images/legacy/capture-buttons.png")
-            frames: 6
-            frame: !overlay.videoMode ? 0 : overlay.recording ? 4 : 2
+            image: !overlay.videoMode ? "shutter" : overlay.recording ? "stop" : "record"
             onClicked: overlay.shutterPressed()
         }
 
@@ -301,11 +298,9 @@ Item {
             width: Units.gu(6.25)
             height: width
             rotation: bar.upright
-            source: Qt.resolvedUrl("images/legacy/flash-buttons.png")
-            frames: 6
+            image: overlay.videoMode ? (prefs.videoLight ? "flash-on" : "flash-off")
+                 : prefs.flashMode === "on" ? "flash-on" : prefs.flashMode === "auto" ? "flash-auto" : "flash-off"
             visible: overlay.flashButtonShown
-            frame: overlay.videoMode ? (prefs.videoLight ? 2 : 0)
-                 : prefs.flashMode === "on" ? 2 : prefs.flashMode === "auto" ? 4 : 0
             onClicked: {
                 if (overlay.videoMode)
                     prefs.videoLight = !prefs.videoLight;
@@ -322,9 +317,8 @@ Item {
             width: Units.gu(6.25)
             height: width
             rotation: bar.upright
-            source: Qt.resolvedUrl("images/legacy/toggle-buttons.png")
-            frames: 4
-            frame: overlay.videoMode ? 2 : 0
+            // Shows the mode a tap switches to.
+            image: overlay.videoMode ? "mode-photo" : "mode-video"
             visible: !overlay.recording
             onClicked: prefs.captureMode = overlay.videoMode ? PreferencesModel.CaptureStillImage
                                                              : PreferencesModel.CaptureVideo
@@ -340,9 +334,9 @@ Item {
             rotation: bar.upright
             visible: overlay.recording
 
-            Image {
+            ArtworkImage {
                 anchors.fill: parent
-                source: "images/legacy/timer-background.png"
+                svg: Qt.resolvedUrl("images/timer-background.svg")
             }
             Text {
                 anchors.centerIn: parent
@@ -362,17 +356,15 @@ Item {
         y: overlay.areaTop + Units.gu(1.5)
         width: Units.gu(6.25)
         height: width
-        source: Qt.resolvedUrl("images/legacy/blank-button.png")
-        frames: 2
+        image: "round-button"
         visible: !overlay.recording
         onClicked: overlay.settingsButtonClicked()
 
-        Image {
+        ArtworkImage {
             anchors.centerIn: parent
             width: Units.gu(3.25)
             height: width
-            sourceSize.width: width
-            source: "images/settings.svg"
+            svg: Qt.resolvedUrl("images/settings.svg")
         }
     }
 
@@ -384,20 +376,18 @@ Item {
         y: overlay.areaTop + Units.gu(1.5)
         width: Units.gu(6.25)
         height: width
-        source: Qt.resolvedUrl("images/legacy/blank-button.png")
-        frames: 2
+        image: "round-button"
         visible: overlay.cameraCount > 1 && !overlay.recording
         onClicked: prefs.position = (prefs.position === CameraDevice.FrontFace)
                    ? CameraDevice.BackFace : CameraDevice.FrontFace
 
-        Image {
+        ArtworkImage {
             anchors.centerIn: parent
             width: Units.gu(3.25)
             height: width
-            sourceSize.width: width
             // webOS's own circling arrows (the Pre3 email app's sync icon); the
             // legacy camera had no front / back switch to take them from.
-            source: "images/legacy/icon-sync.png"
+            svg: Qt.resolvedUrl("images/icon-sync.svg")
         }
     }
 
@@ -415,8 +405,7 @@ Item {
         y: flipButton.y + flipButton.height + Units.gu(1.5)
         width: Units.gu(6.25)
         height: width
-        source: Qt.resolvedUrl("images/legacy/blank-button.png")
-        frames: 2
+        image: "round-button"
         onClicked: if (overlay.cameraView) overlay.cameraView.cycleDroidCamera()
 
         Text {

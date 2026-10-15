@@ -1,0 +1,114 @@
+{
+    "crop": [
+        0,
+        600,
+        120,
+        120
+    ],
+    "cx": 60,
+    "cy": 60.1,
+    "layers": [
+        {
+            "cx": 60.0625,
+            "cy": 65.55,
+            "fill": "radial",
+            "r": 60.125,
+            "shape": "disc",
+            "stops": 24
+        },
+        {
+            "r": 42.625,
+            "shape": "disc",
+            "stops": 48
+        },
+        {
+            "cx": 60,
+            "cy": 61.25,
+            "fill": "radial",
+            "r": 42.625,
+            "shape": "disc",
+            "stops": 24
+        },
+        {
+            "r": 43.375,
+            "ri": 41,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 43.875,
+            "ri": 42.375,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 45,
+            "ri": 43.25,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 46.5,
+            "ri": 43.875,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 47.125,
+            "ri": 44.875,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 47.375,
+            "ri": 46.375,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "r": 48.125,
+            "ri": 47,
+            "shape": "ring",
+            "stops": 32
+        },
+        {
+            "cx": 60,
+            "cy": 62.5,
+            "fade": true,
+            "fill": "radial",
+            "r": 27,
+            "shape": "disc",
+            "stops": 20
+        },
+        {
+            "h": 37.5,
+            "rx": 0,
+            "shape": "rect",
+            "stops": 12,
+            "w": 37.75,
+            "x": 40.375,
+            "y": 41.125
+        },
+        {
+            "h": 36,
+            "rx": 0.125,
+            "shape": "rect",
+            "stops": 40,
+            "w": 36.125,
+            "x": 42,
+            "y": 42
+        }
+    ],
+    "out": "../../../qml/images/stop-pressed.svg",
+    "passes": 0,
+    "png": "../reference/capture-buttons.png",
+    "refine": [
+        "centres",
+        "rects"
+    ],
+    "rounds": 10,
+    "smooth": 0.01,
+    "split": 60,
+    "step": 0.25,
+    "stops": 20
+}
