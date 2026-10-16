@@ -7,13 +7,34 @@ import LunaNext.Common 0.1
 /*
  * Shows what a scanned QR code or barcode says, with what can be done with it:
  * open a web address, or copy the text.
+ *
+ * An otpauth:// link - the QR code a site shows to set up two-step
+ * verification - opens too, in whatever app handles the scheme (the
+ * Authenticator). Its key is not put on the screen: the banner shows the
+ * account the link is for.
  */
 Rectangle {
     id: banner
 
     property string text: ""
     property string format: ""
-    readonly property bool isLink: /^(https?|mailto|tel|sms|geo):/i.test(text)
+    readonly property bool isLink: /^(https?|mailto|tel|sms|geo|otpauth):/i.test(text)
+    readonly property bool isOtpAuth: /^otpauth:/i.test(text)
+
+    // "otpauth://totp/Example:alice?secret=..." as "Example:alice", without
+    // the key.
+    function otpAuthAccount(link) {
+        var m = /^otpauth:\/\/[^\/?#]*\/([^?#]*)/i.exec(link);
+        var name = "";
+        if (m) {
+            try {
+                name = decodeURIComponent(m[1]);
+            } catch (e) {
+                name = m[1];
+            }
+        }
+        return name !== "" ? name : qsTr("an account");
+    }
 
     signal openRequested(string url)
 
@@ -54,7 +75,8 @@ Rectangle {
             width: parent.width
             color: "#a0a0a0"
             font.pixelSize: FontUtils.sizeToPixels("small")
-            text: banner.format === "QR-Code" ? qsTr("QR code") : banner.format
+            text: banner.isOtpAuth ? qsTr("Two-step verification")
+                  : banner.format === "QR-Code" ? qsTr("QR code") : banner.format
         }
 
         Text {
@@ -64,7 +86,7 @@ Rectangle {
             wrapMode: Text.WrapAnywhere
             maximumLineCount: 3
             elide: Text.ElideRight
-            text: banner.text
+            text: banner.isOtpAuth ? qsTr("Codes for %1").arg(banner.otpAuthAccount(banner.text)) : banner.text
         }
 
         Row {

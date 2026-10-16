@@ -1,5 +1,18 @@
 # Camera app tests
 
+## QML tests (`qml/`), on the build host
+
+    tests/run-qml-tests.sh [path to luneos-components]
+
+- `tst_codebanner.qml`: the QR code banner offers Open for web, mail,
+  phone, SMS, map and otpauth:// links and not for plain text or a
+  product barcode; an otpauth:// link (two-step verification) is shown
+  as the account it is for, never with its key, and Open hands the whole
+  link on.
+
+luneos-components needs its desktop build (`CONFIG+=desktop`) for the
+LuneOS style.
+
 ## Unit tests (`unit/`)
 
 gtest, for the C++ that needs no camera:
