@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.LuneOS 2.0
+import QtMultimedia
 import Eos.Window 0.1
 
 import LuneOS.Service 1.0
@@ -25,6 +26,10 @@ WebOSWindow {
         id: preferences
     }
 
+    // Opened to read a code ({"scan": true}): codes are read for the rest of
+    // this run even with "Read QR codes and barcodes" off.
+    property bool scanRequested: false
+
     LunaService {
         id: lunaService
         name: "org.webosports.app.camera"
@@ -40,6 +45,20 @@ WebOSWindow {
     LaunchParams {
         window: root
         onAppMenuRequested: appMenu.popup(0, 0)
+        onLaunched: function(params) {
+            if (params.scan === true)
+                root.startScan();
+        }
+    }
+
+    /* Another app wants a code read, an Authenticator a site's QR code: the
+     * back camera, taking photos, whatever was used last. Like the Front /
+     * Back button, this is kept for next time. */
+    function startScan() {
+        preferences.position = CameraDevice.BackFace;
+        preferences.captureMode = PreferencesModel.CaptureStillImage;
+        preferencesPage.open = false;
+        scanRequested = true;
     }
 
     Menu {
@@ -233,6 +252,7 @@ WebOSWindow {
 
         anchors.fill: parent
         prefs: preferences
+        scanRequested: root.scanRequested
 
         onCaptureDone: (filepath) => root.photoTaken(filepath)
         onCodeDetected: (text, format) => captureOverlayItem.showCode(text, format)
