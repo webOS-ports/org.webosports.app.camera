@@ -21,6 +21,8 @@ Item {
     signal codeDetected(string text, string format);
 
     property PreferencesModel prefs;
+    // Codes are read even with prefs.scanCodes off (opened to scan one).
+    property bool scanRequested: false
     readonly property var captureSessionItem: captureSessionLoader.item
 
     // Zoom. On Halium the HAL zooms (DroidCameraFactory.zoom), so the preview,
@@ -302,7 +304,8 @@ Item {
 
     BarcodeScanner {
         videoSink: videoOutputView.videoSink
-        active: prefs.scanCodes && prefs.captureMode === PreferencesModel.CaptureStillImage
+        active: (prefs.scanCodes || cameraViewRoot.scanRequested)
+                && prefs.captureMode === PreferencesModel.CaptureStillImage
                 && cameraViewRoot.visible && !cameraViewRoot.previewStarting
         onDecoded: (text, format) => cameraViewRoot.codeDetected(text, format)
     }
