@@ -1,6 +1,7 @@
 import QtQuick 2.6
 import QtCore
 import QtMultimedia
+import LuneOS.Components 1.0
 
 // Qualified: QtCore has a Settings type of its own, which this file is.
 import LunaNext.Common 0.1 as Common
@@ -23,10 +24,8 @@ Settings {
         CaptureVideo
     }
 
-    // Not a QSettings organisation/application pair: the QML runner is shared
-    // by every QML app, so the file is named explicitly.
-    location: StandardPaths.writableLocation(StandardPaths.GenericConfigLocation)
-              + "/org.webosports.app.camera/preferences.ini"
+    // In the app's own file, as every QML app has (LuneOS.Components' AppFiles).
+    location: AppFiles.preferencesFile("org.webosports.app.camera")
     category: "camera"
 
     property int position: CameraDevice.BackFace
