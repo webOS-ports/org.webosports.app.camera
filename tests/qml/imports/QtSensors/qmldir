@@ -1,0 +1,4 @@
+module QtSensors
+OrientationSensor 6.0 OrientationSensor.qml
+singleton QmlSensors 6.0 QmlSensors.qml
+OrientationReading 6.0 OrientationReading.qml

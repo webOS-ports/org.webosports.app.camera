@@ -24,6 +24,21 @@ with its recipe sysroot:
     <sysroot>/usr/lib/ld-linux-x86-64.so.2 --library-path <sysroot>/usr/lib \
         ./camera-app-tests
 
+## QML tests (`qml/`)
+
+qmltestrunner cases for the QML, run on the build host:
+
+- `tst_VideoLight.qml`: without the Android camera HAL, the flash LED is on
+  while a recording runs with the video light on, follows the light's
+  button, and is off when the recording stops, however it stops. The host
+  has no camera, so it records the screen.
+
+The camera's own C++ (`CameraApp`, `LuneOS.Camera`) and QtSensors are
+replaced by the mocks in `qml/imports/`; the rest comes from luneos-components
+checked out next to this repository:
+
+    tests/qml/run-tests.sh
+
 ## Sanitizers and valgrind
 
 The image toolchain ships no sanitizer runtimes, so build the tests with the

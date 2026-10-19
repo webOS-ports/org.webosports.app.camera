@@ -1,0 +1,5 @@
+module LuneOS.Camera
+singleton DroidCameraFactory 1.0 DroidCameraFactory.qml
+singleton CameraSensorInfo 1.0 CameraSensorInfo.qml
+singleton CameraGeometry 1.0 CameraGeometry.qml
+BarcodeScanner 1.0 BarcodeScanner.qml

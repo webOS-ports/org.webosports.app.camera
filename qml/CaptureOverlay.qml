@@ -105,16 +105,20 @@ Item {
             else
                 DroidCameraFactory.startRecording(videoPath, cameraView.recordingRotation);
         } else if (captureSession && captureSession.recorder) {
-            if (captureSession.recorder.recorderState === MediaRecorder.RecordingState) {
+            if (captureSession.recorder.recorderState === MediaRecorder.RecordingState)
                 captureSession.recorder.stop();
-                FlashLed.on = false;
-            } else {
-                // The libcamera path has no flash control, so the LED is
-                // driven directly: as a torch for the whole recording.
-                FlashLed.on = prefs.videoLight;
+            else
                 captureSession.recorder.record();
-            }
         }
+    }
+
+    // The libcamera path has no flash control, so the LED is driven
+    // directly: as a torch while a recording runs.
+    Binding {
+        target: FlashLed
+        property: "on"
+        value: overlay.prefs.videoLight
+        when: overlay.recording && !overlay.useDroid
     }
 
     function takePicture() {

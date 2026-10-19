@@ -1,0 +1,7 @@
+module CameraApp
+singleton FlashLed 0.1 FlashLed.qml
+singleton StorageLocations 0.1 StorageLocations.qml
+CpuBoost 0.1 CpuBoost.qml
+FileOperations 0.1 FileOperations.qml
+ImageTools 0.1 ImageTools.qml
+StorageMonitor 0.1 StorageMonitor.qml
