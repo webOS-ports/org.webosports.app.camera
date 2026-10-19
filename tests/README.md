@@ -32,6 +32,9 @@ qmltestrunner cases for the QML, run on the build host:
   while a recording runs with the video light on, follows the light's
   button, and is off when the recording stops, however it stops. The host
   has no camera, so it records the screen.
+- `tst_FocusPoint.qml`: the tap-to-focus point rests in the middle of the
+  view and follows its size until the user taps, stays where they tapped,
+  and goes back to the middle on a reset.
 
 The camera's own C++ (`CameraApp`, `LuneOS.Camera`) and QtSensors are
 replaced by the mocks in `qml/imports/`; the rest comes from luneos-components

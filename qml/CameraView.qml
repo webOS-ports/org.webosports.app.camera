@@ -271,8 +271,9 @@ Item {
 
     /* Tap-to-focus. Where the reticle sits, in this item's coordinates, and
      * whether the user put it there (otherwise it rests in the middle). */
-    property point focusPoint: Qt.point(width / 2, height / 2)
+    property point chosenFocusPoint
     property bool focusPointChosen: false
+    readonly property point focusPoint: focusPointChosen ? chosenFocusPoint : Qt.point(width / 2, height / 2)
     readonly property bool tapToFocus: useDroidCamera && DroidCameraFactory.controlsReady
                                        && (DroidCameraFactory.focusAreasSupported
                                            || DroidCameraFactory.supportedFocusModes.indexOf("auto") >= 0)
@@ -288,19 +289,16 @@ Item {
                                            viewfinderScale);
         if (p.x < 0)
             return; // on a letterbox bar
-        focusPoint = Qt.point(x, y);
+        chosenFocusPoint = Qt.point(x, y);
         focusPointChosen = true;
         DroidCameraFactory.focusAt(p.x, p.y);
     }
 
     function resetFocus() {
         focusPointChosen = false;
-        focusPoint = Qt.point(width / 2, height / 2);
         if (useDroidCamera)
             DroidCameraFactory.resetFocus();
     }
-    onWidthChanged: if (!focusPointChosen) focusPoint = Qt.point(width / 2, height / 2)
-    onHeightChanged: if (!focusPointChosen) focusPoint = Qt.point(width / 2, height / 2)
 
     BarcodeScanner {
         videoSink: videoOutputView.videoSink
@@ -688,7 +686,6 @@ Item {
     onDroidCameraDeviceChanged: {
         // Another camera: its own zoom range, and the old focus point means nothing.
         focusPointChosen = false;
-        focusPoint = Qt.point(width / 2, height / 2);
         setZoomFactor(1.0);
         if (useDroidCamera)
             attachDroidCamera();
