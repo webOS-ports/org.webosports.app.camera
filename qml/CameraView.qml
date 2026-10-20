@@ -269,11 +269,10 @@ Item {
     Binding { when: useDroidCamera; target: DroidCameraFactory; property: "zslEnabled"; value: prefs.zslEnabled }
     Binding { when: halZoom; target: DroidCameraFactory; property: "zoom"; value: cameraViewRoot.zoomFactor }
 
-    /* Tap-to-focus. Where the reticle sits, in this item's coordinates, and
-     * whether the user put it there (otherwise it rests in the middle). */
-    property point chosenFocusPoint
-    property bool focusPointChosen: false
-    readonly property point focusPoint: focusPointChosen ? chosenFocusPoint : Qt.point(width / 2, height / 2)
+    /* Tap-to-focus. Where the reticle sits, in this item's coordinates: bound
+     * to the middle of the view until a tap puts it somewhere, and bound to
+     * the middle again by centreFocusPoint(). */
+    property point focusPoint: Qt.point(width / 2, height / 2)
     readonly property bool tapToFocus: useDroidCamera && DroidCameraFactory.controlsReady
                                        && (DroidCameraFactory.focusAreasSupported
                                            || DroidCameraFactory.supportedFocusModes.indexOf("auto") >= 0)
@@ -289,13 +288,16 @@ Item {
                                            viewfinderScale);
         if (p.x < 0)
             return; // on a letterbox bar
-        chosenFocusPoint = Qt.point(x, y);
-        focusPointChosen = true;
+        focusPoint = Qt.point(x, y);
         DroidCameraFactory.focusAt(p.x, p.y);
     }
 
+    function centreFocusPoint() {
+        focusPoint = Qt.binding(() => Qt.point(width / 2, height / 2));
+    }
+
     function resetFocus() {
-        focusPointChosen = false;
+        centreFocusPoint();
         if (useDroidCamera)
             DroidCameraFactory.resetFocus();
     }
@@ -685,7 +687,7 @@ Item {
 
     onDroidCameraDeviceChanged: {
         // Another camera: its own zoom range, and the old focus point means nothing.
-        focusPointChosen = false;
+        centreFocusPoint();
         setZoomFactor(1.0);
         if (useDroidCamera)
             attachDroidCamera();
