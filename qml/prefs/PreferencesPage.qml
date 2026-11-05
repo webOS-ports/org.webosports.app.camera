@@ -101,8 +101,18 @@ AppPage {
         }
 
         FormGroup {
+            objectName: "pictureGroup"
             title: qsTr("Picture")
-            visible: page.controls
+            // Only with something in it: a camera with none of these is an
+            // empty box under its heading otherwise.
+            visible: page.controls && (DroidCameraFactory.hdrSupported || DroidCameraFactory.zslSupported
+                                       || DroidCameraFactory.supportedSceneModes.length > 1
+                                       || DroidCameraFactory.supportedWhiteBalanceModes.length > 1
+                                       || DroidCameraFactory.supportedColorTones.length > 1
+                                       || DroidCameraFactory.supportedIsoSpeeds.filter(function(v) { return v > 1; }).length > 0
+                                       || DroidCameraFactory.maximumExposureCompensation > DroidCameraFactory.minimumExposureCompensation
+                                       || DroidCameraFactory.supportedFocusModes.length > 1
+                                       || DroidCameraFactory.supportedFlickerModes.length > 1)
 
             LabelAndSwitch {
                 label: qsTr("HDR")

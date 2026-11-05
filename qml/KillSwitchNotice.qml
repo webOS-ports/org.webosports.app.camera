@@ -18,6 +18,7 @@
 import QtQuick
 import LuneOS.Service 1.0
 import LuneOS.System 1.0
+import LunaNext.Common 0.1
 
 /*
  * Says so when the camera is off because the hardware privacy switch is on.
@@ -127,8 +128,12 @@ Item {
      * sits where legacy webOS has always put it.
      */
     Column {
+        id: words
+        objectName: "killSwitchWords"
         anchors.horizontalCenter: parent.horizontalCenter
-        y: Math.round(notice.height * 0.56)
+        // Pulled up as far as it takes to keep the words on a short screen
+        // (the Q25).
+        y: Math.round(Math.min(notice.height * 0.56, notice.height - words.height - Units.gu(3)))
         spacing: Math.round(notice.height * 0.03)
         width: parent.width * 0.8
 
@@ -195,7 +200,10 @@ Item {
             width: parent.width
             wrapMode: Text.WordWrap
             color: "white"
-            font.pixelSize: Math.round(notice.height * 0.032)
+            // In the system's sizes, as the rest of the app: a share of the
+            // height was a third smaller than the app's own text on the Q25
+            // and the TouchPad.
+            font.pixelSize: FontUtils.sizeToPixels("large")
             font.bold: true
             text: notice.blocked ? qsTr("Camera turned off") : qsTr("Starting camera")
         }
@@ -206,7 +214,7 @@ Item {
             width: parent.width
             wrapMode: Text.WordWrap
             color: "#cccccc"
-            font.pixelSize: Math.round(notice.height * 0.022)
+            font.pixelSize: FontUtils.sizeToPixels("medium")
             text: notice.blocked
                   ? qsTr("The hardware privacy switch is on. Flip it back to use the camera.")
                   : qsTr("The camera is powering back up. This takes a few seconds.")

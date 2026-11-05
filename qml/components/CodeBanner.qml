@@ -83,7 +83,9 @@ Rectangle {
             width: parent.width
             color: "white"
             font.pixelSize: FontUtils.sizeToPixels("medium")
-            wrapMode: Text.WrapAnywhere
+            // A link breaks after a "/" where it can, mid-word only
+            // where a part is longer than the line.
+            wrapMode: Text.WrapAtWordBoundaryOrAnywhere
             maximumLineCount: 3
             elide: Text.ElideRight
             text: banner.isOtpAuth ? qsTr("Codes for %1").arg(banner.otpAuthAccount(banner.text)) : banner.text

@@ -81,7 +81,7 @@ TestCase {
         Rectangle {
             anchors.fill: parent
             z: -100000
-            color: test.app.color
+            color: test.app ? test.app.color : "black"
         }
     }
 
@@ -294,7 +294,29 @@ TestCase {
         var notice = find("killSwitchNotice");
         notice.blocked = true;
         onScreen(notice, "kill switch notice");
+        onScreen(find("killSwitchWords"), "the kill switch notice's words");
         verify(!find("captureOverlay").visible, "no shutter through the notice");
         shot("kill-switch");
+    }
+
+    // A camera that lists none of the picture settings: no Picture box,
+    // empty under its heading.
+    function test_preferences_without_picture_settings() {
+        DroidCameraFactory.hdrSupported = false;
+        DroidCameraFactory.zslSupported = false;
+        DroidCameraFactory.supportedFocusModes = ["auto"];
+        DroidCameraFactory.supportedWhiteBalanceModes = [];
+        DroidCameraFactory.supportedSceneModes = ["auto"];
+        DroidCameraFactory.supportedColorTones = [];
+        DroidCameraFactory.supportedFlickerModes = [];
+        DroidCameraFactory.supportedIsoSpeeds = [];
+        DroidCameraFactory.minimumExposureCompensation = 0;
+        DroidCameraFactory.maximumExposureCompensation = 0;
+        mouseClick(find("settingsButton"));
+        var page = find("preferencesPage");
+        tryVerify(function() { return page.y === 0; }, 2000, "preferences slid up");
+        verify(!find("pictureGroup").visible, "no empty Picture group");
+        DroidCameraFactory.hdrSupported = true;
+        verify(find("pictureGroup").visible, "with HDR, a Picture group");
     }
 }
