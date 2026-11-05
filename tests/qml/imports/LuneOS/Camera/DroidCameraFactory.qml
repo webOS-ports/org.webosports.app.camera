@@ -40,6 +40,9 @@ QtObject {
     property bool hdrEnabled: false
     property bool zslEnabled: false
 
+    // What cameras() lists: {index, facing} as the HAL numbers them.
+    property var cameraList: []
+
     property var lastFocusAt: null
     property int resetFocusCount: 0
 
@@ -50,7 +53,7 @@ QtObject {
     signal videoSaved(string path)
     signal videoCaptureError(string message)
 
-    function cameras() { return []; }
+    function cameras() { return cameraList; }
     function createVideoSource(device) { return null; }
     function focusAt(x, y) { lastFocusAt = Qt.point(x, y); }
     function resetFocus() { resetFocusCount++; }

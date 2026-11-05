@@ -221,6 +221,7 @@ Item {
      * a side edge; each button turns back, so its artwork stays upright. */
     Item {
         id: bar
+        objectName: "captureBar"
 
         width: overlay.barUpright ? overlay.areaBottom - overlay.areaTop
                                   : overlay.areaRight - overlay.areaLeft
@@ -236,6 +237,7 @@ Item {
         // The last capture, 70 px square in a frame of its own.
         Item {
             id: lastCapture
+            objectName: "galleryButton"
 
             property string path: ""
 
@@ -287,6 +289,7 @@ Item {
 
         SpriteButton {
             id: shutter
+            objectName: "shutterButton"
             anchors.centerIn: parent
             width: Units.gu(10)
             height: width
@@ -321,6 +324,7 @@ Item {
             width: Units.gu(6.25)
             height: width
             rotation: bar.upright
+            objectName: "modeButton"
             // Shows the mode a tap switches to.
             image: overlay.videoMode ? "mode-photo" : "mode-video"
             visible: !overlay.recording
@@ -356,6 +360,7 @@ Item {
     // Both corner buttons are the bar's black button with a white icon on it.
     SpriteButton {
         id: settingsButton
+        objectName: "settingsButton"
         x: overlay.areaLeft + (overlay.barSide === "left" ? overlay.barDepth : 0) + Units.gu(1.5)
         y: overlay.areaTop + Units.gu(1.5)
         width: Units.gu(6.25)
@@ -375,6 +380,7 @@ Item {
     // Front / back.
     SpriteButton {
         id: flipButton
+        objectName: "flipButton"
         // Clear of the bar when it runs down the right edge.
         x: overlay.areaRight - (overlay.barSide === "right" ? overlay.barDepth : 0) - Units.gu(1.5) - width
         y: overlay.areaTop + Units.gu(1.5)
@@ -493,6 +499,7 @@ Item {
 
     CodeBanner {
         id: codeBanner
+        objectName: "codeBanner"
         anchors.centerIn: parent
         width: Math.min(parent.width - Units.gu(3), Units.gu(40))
         onOpenRequested: (url) => overlay.codeOpenRequested(url)

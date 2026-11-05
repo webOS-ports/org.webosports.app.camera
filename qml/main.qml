@@ -63,6 +63,7 @@ WebOSWindow {
 
     Menu {
         id: appMenu
+        objectName: "appMenu"
         // The app menu is the dark one that drops out of the corner.
         LuneOSMenu.appMenuStyle: true
 
@@ -249,6 +250,7 @@ WebOSWindow {
 
     CameraView {
         id: cameraViewItem
+        objectName: "cameraView"
 
         anchors.fill: parent
         prefs: preferences
@@ -260,6 +262,7 @@ WebOSWindow {
 
     CaptureOverlay {
         id: captureOverlayItem
+        objectName: "captureOverlay"
 
         anchors.fill: parent
         /* Nothing to drive while the camera is off, and a shutter button
@@ -278,6 +281,7 @@ WebOSWindow {
     /* The preferences scene slides up over the viewfinder. */
     PreferencesPage {
         id: preferencesPage
+        objectName: "preferencesPage"
 
         property bool open: false
 
@@ -294,6 +298,7 @@ WebOSWindow {
     /* Last, so it covers the viewfinder and the capture controls alike. */
     KillSwitchNotice {
         id: killSwitchNotice
+        objectName: "killSwitchNotice"
 
         /* Keep covering the viewfinder until frames are actually flowing, so
          * the notice hands straight over to "starting" instead of uncovering a

@@ -39,3 +39,6 @@ CMakeLists.txt.user
 # Precompiled QML
 *.qmlc
 *.jsc
+
+# Test output (screenshots)
+/build/

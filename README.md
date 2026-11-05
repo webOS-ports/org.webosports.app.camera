@@ -26,3 +26,18 @@ Launch parameters
   the rest of the run even with "Read QR codes and barcodes" off. The back
   camera and photo mode are kept for next time, as the Front / Back button
   keeps its choice.
+
+Tests
+-----
+
+On the build host, with luneos-components checked out next to this
+repository:
+
+    tests/run-qml-tests.sh [path to luneos-components]
+
+runs the QML tests and then the app at the mindphone (480x800), Q25
+(720x720), TouchPad (1024x768) and FuriPhone FLX1s (radon, 720x1600 with a
+notch and rounded corners) sizes, saving each screen as
+`build/test-output/ui/<profile>-<screen>.png`. `PROFILES` picks other
+luneos-components profiles. See tests/README.md, also for the C++ unit
+tests.
