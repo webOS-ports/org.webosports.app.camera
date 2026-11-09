@@ -167,6 +167,8 @@ TestCase {
             fail(component.errorString());
         app = component.createObject(null, { width: Settings.displayWidth, height: Settings.displayHeight });
         verify(app !== null, "main.qml made");
+        // The app quits once a photo for another app is done with; the tests go on.
+        app.quitWhenDone = false;
         app.requestActivate();
         var prefs = find("cameraView").prefs;
         prefs.captureMode = 0;
@@ -297,6 +299,106 @@ TestCase {
         onScreen(find("killSwitchWords"), "the kill switch notice's words");
         verify(!find("captureOverlay").visible, "no shutter through the notice");
         shot("kill-switch");
+    }
+
+    SignalSpy {
+        id: sentBack
+        signalName: "sendBack"
+    }
+
+    // As another app launches the camera for a photo: {"capture": {"returnTo": ...}}.
+    function askForPhoto() {
+        var request = find("captureRequest");
+        sentBack.target = request;
+        sentBack.clear();
+        find("captureOverlay").prefs.captureMode = 1;   // left in video
+        app.launchParams = JSON.stringify({ capture: { returnTo: "org.webosports.app.messaging" } });
+        tryVerify(function() { return request.active; }, 2000, "taking a photo for Messaging");
+        return request;
+    }
+
+    function takeFor(request, path) {
+        app.photoTaken(path);
+        tryVerify(function() { return request.reviewing; }, 2000, "the photo is shown to keep or take again");
+        compare(request.photo, path);
+    }
+
+    function test_photo_for_another_app() {
+        var request = askForPhoto();
+        var overlay = find("captureOverlay");
+        verify(!overlay.videoMode, "photos only");
+        onScreen(find("shutterButton"), "shutter");
+        verify(!find("modeButton").visible, "no switch to video");
+        verify(!find("galleryButton").visible, "no way off to Photos");
+        shot("capture");
+
+        // Not tagged with where it was taken, with a fix at hand and tagging on.
+        overlay.prefs.gpsEnabled = true;
+        app.lastFix = { latitude: 52.1, longitude: 5.1, altitude: NaN, time: Date.now() };
+        verify(app.currentLocation() !== null, "a fix to tag with");
+        takeFor(request, "/media/internal/DCIM/one.jpg");
+        verify(find("imageTools").lastOptions.latitude === undefined, "no geotag on a photo for another app");
+        var review = onScreen(find("captureReview"), "the photo to keep or take again");
+        compare(review.width, app.width);
+        var retake = onScreen(find("retakeButton"), "Retake");
+        var use = onScreen(find("usePhotoButton"), "Use Photo");
+        apart(retake, use, "Retake and Use Photo");
+        shot("capture-review");
+
+        // Retake: deleted, back to the viewfinder, nothing sent yet.
+        mouseClick(find("retakeButton"));
+        verify(!request.reviewing, "back to the viewfinder");
+        verify(!find("captureReview").visible, "the photo is gone");
+        compare(find("fileOperations").removed, ["/media/internal/DCIM/one.jpg"]);
+        compare(sentBack.count, 0);
+
+        takeFor(request, "/media/internal/DCIM/two.jpg");
+        mouseClick(find("usePhotoButton"));
+        compare(sentBack.count, 1, "Messaging relaunched once");
+        compare(sentBack.signalArguments[0][0], "org.webosports.app.messaging");
+        compare(JSON.stringify(sentBack.signalArguments[0][1]),
+                JSON.stringify({ cameraCapture: { path: "/media/internal/DCIM/two.jpg" } }));
+        compare(find("fileOperations").removed, ["/media/internal/DCIM/one.jpg"], "the kept one stays");
+        verify(!request.active, "done");
+        verify(overlay.videoMode, "back in the mode it was in");
+        verify(find("modeButton").visible && find("galleryButton").visible, "the usual buttons again");
+    }
+
+    function test_back_while_taking_a_photo_for_another_app() {
+        var request = askForPhoto();
+        takeFor(request, "/media/internal/DCIM/one.jpg");
+        // Back from the photo takes it again.
+        keyClick(Qt.Key_Escape);
+        verify(!request.reviewing, "back to the viewfinder");
+        compare(find("fileOperations").removed, ["/media/internal/DCIM/one.jpg"]);
+        compare(sentBack.count, 0);
+        // The preferences close first.
+        find("preferencesPage").open = true;
+        keyClick(Qt.Key_Escape);
+        verify(!find("preferencesPage").open, "preferences closed");
+        verify(request.active, "still taking a photo");
+        // Back from the viewfinder gives up and goes back.
+        keyClick(Qt.Key_Escape);
+        compare(sentBack.count, 1);
+        compare(JSON.stringify(sentBack.signalArguments[0][1]), JSON.stringify({ cameraCapture: { cancelled: true } }));
+        verify(!request.active, "done");
+        // Back on its own camera does nothing it did not do before.
+        keyClick(Qt.Key_Escape);
+        compare(sentBack.count, 1);
+    }
+
+    function test_opened_for_itself_while_taking_a_photo() {
+        var request = askForPhoto();
+        takeFor(request, "/media/internal/DCIM/one.jpg");
+        app.launchParams = JSON.stringify({ scan: true });
+        tryVerify(function() { return !request.active; }, 2000, "no app waits any more");
+        verify(!find("captureReview").visible);
+        compare(find("fileOperations").removed, [], "the photo stays");
+        compare(sentBack.count, 0);
+        // An app id that is not one is not taken.
+        app.launchParams = JSON.stringify({ capture: { returnTo: "../../bin/sh" } });
+        wait(50);
+        verify(!request.active, "no photo for that");
     }
 
     // A camera that lists none of the picture settings: no Picture box,

@@ -26,6 +26,15 @@ Launch parameters
   the rest of the run even with "Read QR codes and barcodes" off. The back
   camera and photo mode are kept for next time, as the Front / Back button
   keeps its choice.
+- `{"capture": {"returnTo": "<app id>"}}`: take a photo for that app
+  (Messaging's "Take Photo" sends it). Photos only, with no way off to
+  Photos; the photo is shown with Retake and Use Photo. Use Photo relaunches
+  the app with `{"cameraCapture": {"path": "<the .jpg>"}}` and closes the
+  camera; Back (from the viewfinder) relaunches it with
+  `{"cameraCapture": {"cancelled": true}}` and closes it. A photo taken
+  again is deleted; the one kept stays in the photo folder. It is not
+  geotagged, as it is about to be sent to someone. Photo or video mode is
+  as it was afterwards.
 
 Tests
 -----

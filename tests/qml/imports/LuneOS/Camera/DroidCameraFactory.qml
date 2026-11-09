@@ -19,7 +19,6 @@ QtObject {
     property real exposureCompensationStep: 0
     property real minimumExposureCompensation: 0
     property real maximumExposureCompensation: 0
-    property real appliedExposureCompensation: 0
     property var supportedFlashModes: []
     property var supportedFocusModes: []
     property var supportedWhiteBalanceModes: []
@@ -60,4 +59,6 @@ QtObject {
     function startRecording(path, rotation) { recording = true; }
     function stopRecording() { recording = false; }
     function takePicture(path) {}
+    // A method on the phone, as the HAL applied it.
+    function appliedExposureCompensation() { return 0; }
 }
