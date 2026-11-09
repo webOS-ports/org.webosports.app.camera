@@ -21,7 +21,11 @@
   the camera switch notice, checks that the viewfinder fills the window and
   the shutter, gallery, mode, preferences and front / back buttons are
   shown, inside the window and clear of each other, and that the
-  preferences do not scroll sideways. Each screen is saved as
+  preferences do not scroll sideways. A photo taken for another app
+  (`{"capture": ...}`): photos only, no gallery or mode button, the photo
+  shown with Retake and Use Photo, Retake deleting it, Use Photo and Back
+  relaunching the app with the photo or with none, no geotag, and the
+  mode it was in afterwards. Each screen is saved as
   `build/test-output/ui/<profile>-<screen>.png`; on radon the parts the
   panel does not show are drawn over in red. The host has no camera: the
   phones' droid camera is stood in by the mock in `qml/imports` (a back

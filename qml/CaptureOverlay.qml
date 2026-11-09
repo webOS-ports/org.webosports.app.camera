@@ -68,6 +68,9 @@ Item {
     // The bar is 100 px deep.
     readonly property real barDepth: Units.gu(12.5)
 
+    // Taking a photo for another app: no videos, and no way off to Photos.
+    property bool forAnotherApp: false
+
     signal galleryButtonClicked()
     signal settingsButtonClicked()
     signal codeOpenRequested(string url)
@@ -246,7 +249,7 @@ Item {
             width: Units.gu(10.5)
             height: width
             rotation: bar.upright
-            visible: !overlay.recording
+            visible: !overlay.recording && !overlay.forAnotherApp
 
             ArtworkImage {
                 anchors.centerIn: parent
@@ -327,7 +330,7 @@ Item {
             objectName: "modeButton"
             // Shows the mode a tap switches to.
             image: overlay.videoMode ? "mode-photo" : "mode-video"
-            visible: !overlay.recording
+            visible: !overlay.recording && !overlay.forAnotherApp
             onClicked: prefs.captureMode = overlay.videoMode ? PreferencesModel.CaptureStillImage
                                                              : PreferencesModel.CaptureVideo
         }

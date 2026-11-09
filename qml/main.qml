@@ -46,8 +46,74 @@ WebOSWindow {
         window: root
         onAppMenuRequested: appMenu.popup(0, 0)
         onLaunched: function(params) {
+            if (isCommand(params))
+                return;
+            if (params.capture !== undefined)
+                root.startCapture(params.capture);
+            else
+                root.endCapture();
             if (params.scan === true)
                 root.startScan();
+        }
+    }
+
+    /* Another app wants a photo (CaptureRequest): photos only, in the mode
+     * it was in, kept or taken again, and then back to that app. What the
+     * camera was set to - photo or video - is what it is set to after. */
+    property bool quitWhenDone: true
+    property int modeBeforeCapture: -1
+
+    CaptureRequest {
+        id: captureRequest
+        objectName: "captureRequest"
+
+        onSendBack: (appId, params) => {
+            root.endCapture();
+            var leave = function() { if (root.quitWhenDone) Qt.quit(); };
+            launcher.launch(appId, params, leave, function(error) {
+                console.warn("Could not go back to " + appId + ": " + error);
+                leave();
+            });
+        }
+        onDiscard: (path) => {
+            if (!fileOperations.remove(path))
+                console.warn("could not delete the photo taken again: " + path);
+            captureOverlayItem.setLastCapturedImage("");
+        }
+    }
+
+    FileOperations {
+        id: fileOperations
+        objectName: "fileOperations"
+    }
+
+    function startCapture(capture) {
+        if (!captureRequest.start(capture))
+            return;
+        if (modeBeforeCapture < 0)
+            modeBeforeCapture = preferences.captureMode;
+        preferences.captureMode = PreferencesModel.CaptureStillImage;
+        preferencesPage.open = false;
+    }
+
+    function endCapture() {
+        captureRequest.drop();
+        if (modeBeforeCapture >= 0)
+            preferences.captureMode = modeBeforeCapture;
+        modeBeforeCapture = -1;
+    }
+
+    /* The back gesture arrives as Escape (LunaNext.Common's EventType).
+     * Only while a photo is taken for another app: the preferences close,
+     * the photo is taken again, and then the camera gives up and goes back. */
+    Shortcut {
+        sequence: "Esc"
+        enabled: captureRequest.active
+        onActivated: {
+            if (preferencesPage.open)
+                preferencesPage.open = false;
+            else
+                captureRequest.back();
         }
     }
 
@@ -195,10 +261,12 @@ WebOSWindow {
      * thumbnail follows when that is done. */
     ImageTools {
         id: imageTools
+        objectName: "imageTools"
         onFinished: (path, ok, error) => {
             if (!ok)
                 console.warn("could not finish " + path + ": " + error);
             captureOverlayItem.setLastCapturedImage(path);
+            captureRequest.photoReady(path);
         }
     }
     function photoTaken(path) {
@@ -226,6 +294,13 @@ WebOSWindow {
             imageTools.process(path, options);
         }
 
+        /* A photo for another app is not tagged with where it was taken:
+         * it is about to be sent to someone, and a chat app passes the
+         * file on as it is. */
+        if (captureRequest.active) {
+            finish(null);
+            return;
+        }
         var where = currentLocation();
         if (where || !preferences.gpsEnabled || !busReady) {
             finish(where);
@@ -273,6 +348,8 @@ WebOSWindow {
         cameraView: cameraViewItem
         prefs: preferences
 
+        forAnotherApp: captureRequest.active
+
         onGalleryButtonClicked: root.openPhotos()
         onSettingsButtonClicked: preferencesPage.open = true
         onCodeOpenRequested: (url) => root.openUrl(url)
@@ -293,6 +370,14 @@ WebOSWindow {
 
         prefs: preferences
         onClosed: open = false
+    }
+
+    CaptureReview {
+        objectName: "captureReview"
+        anchors.fill: parent
+        path: captureRequest.reviewing ? captureRequest.photo : ""
+        onRetake: captureRequest.retake()
+        onAccept: captureRequest.accept()
     }
 
     /* Last, so it covers the viewfinder and the capture controls alike. */
