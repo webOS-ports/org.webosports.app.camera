@@ -90,7 +90,10 @@ Item {
     SystemPreferences {
         clientName: "org.webosports.app.camera"
         keys: ["rotationLock"]
-        onChanged: (key, value) => cameraViewRoot.shellRotationLock = value
+        // Only a number is an angle. Anything else (a false from an older
+        // store) is no lock: the int took it as 0, locked upright.
+        onChanged: (key, value) => cameraViewRoot.shellRotationLock =
+                   typeof value === "number" ? value : 400
         onError: (message) => console.warn("rotationLock preference: " + message)
     }
     readonly property int screenRotation: {
