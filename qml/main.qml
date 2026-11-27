@@ -119,7 +119,9 @@ WebOSWindow {
 
     /* Another app wants a code read, an Authenticator a site's QR code: the
      * back camera, taking photos, whatever was used last. Like the Front /
-     * Back button, this is kept for next time. */
+     * Back button, this is kept for next time. A two-step verification
+     * code then goes straight to the app that handles it (see codeFound);
+     * the Authenticator asks before it adds anything. */
     function startScan() {
         preferences.position = CameraDevice.BackFace;
         preferences.captureMode = PreferencesModel.CaptureStillImage;
@@ -332,7 +334,23 @@ WebOSWindow {
         scanRequested: root.scanRequested
 
         onCaptureDone: (filepath) => root.photoTaken(filepath)
-        onCodeDetected: (text, format) => captureOverlayItem.showCode(text, format)
+        onCodeDetected: (text, format) => root.codeFound(text, format)
+    }
+
+    /* Asked to scan, an otpauth:// or otpauth-migration:// code is the one
+     * wanted: handed over at once, and the request is done. Any other
+     * code, or the camera opened for itself, gets the banner, which waits
+     * for Open or Import - a code that happens to be in view while taking
+     * photos does not pull anyone into another app. */
+    property string lastHandedOver: ""
+    function codeFound(text, format) {
+        if (scanRequested && /^otpauth(-migration)?:/i.test(text)) {
+            scanRequested = false;
+            lastHandedOver = text;
+            openUrl(text);
+            return;
+        }
+        captureOverlayItem.showCode(text, format);
     }
 
     CaptureOverlay {

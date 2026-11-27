@@ -22,10 +22,15 @@ Launch parameters
 -----------------
 
 - `{"scan": true}`: opened to read a code (the Authenticator's "Scan a QR
-  code" sends it). The back camera, taking photos, and codes are read for
-  the rest of the run even with "Read QR codes and barcodes" off. The back
-  camera and photo mode are kept for next time, as the Front / Back button
-  keeps its choice.
+  code" sends it). The back camera, taking photos, and codes are read even
+  with "Read QR codes and barcodes" off. The first two-step verification
+  code seen - an otpauth:// link, or an otpauth-migration:// one from
+  another authenticator's export - goes straight to the app that handles
+  it, with no banner, and the request is done; any other code gets the
+  banner as usual. Opened for itself, the Camera never does that: a
+  two-step code waits in the banner for Open or Import. The back camera
+  and photo mode are kept for next time, as the Front / Back button keeps
+  its choice.
 - `{"capture": {"returnTo": "<app id>"}}`: take a photo for that app
   (Messaging's "Take Photo" sends it). Photos only, with no way off to
   Photos; the photo is shown with Retake and Use Photo. Use Photo relaunches

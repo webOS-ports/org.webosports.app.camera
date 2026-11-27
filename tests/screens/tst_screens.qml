@@ -238,6 +238,48 @@ TestCase {
                                         "QR-Code");
         onScreen(find("codeBanner"), "code banner");
         shot("code-otpauth");
+        find("captureOverlay").showCode(exportLink, "QR-Code");
+        onScreen(find("codeBanner"), "code banner");
+        shot("code-export");
+    }
+
+    // Code 2 of 3 of a Google Authenticator export, three accounts.
+    readonly property string exportLink: "otpauth-migration://offline?data=CjgKFPv%2F%2FgD7%2F%2F4A%2B%2F%2F%2BAPv%2F%2FgD7%2F%2F4AEhFhbGljZUBleGFtcGxlLmNvbRoHQUNNRSBDbyABKAEwAgopChT7%2F%2F4B%2B%2F%2F%2BAfv%2F%2FgH7%2F%2F4B%2B%2F%2F%2BARIDYm9iGgZHaXRIdWIgASgBMAIKLAoU%2B%2F%2F%2BAvv%2F%2FgL7%2F%2F4C%2B%2F%2F%2BAvv%2F%2FgISBWNhcm9sGgdFeGFtcGxlIAEoATACEAEYAyABKMC7%2BP%2F%2F%2F%2F%2F%2F%2FwE%3D"
+    readonly property string otpLink: "otpauth://totp/LuneOS:user@example.org?secret=JBSWY3DPEHPK3PXP&issuer=LuneOS"
+
+    // Opened to scan (the Authenticator's "Scan a QR code"): a two-step
+    // code goes straight over, no banner, and the request is done.
+    function test_scan_hands_the_code_over_data() {
+        return [ { tag: "otpauth", link: otpLink }, { tag: "export", link: exportLink } ];
+    }
+    function test_scan_hands_the_code_over(data) {
+        app.launchParams = JSON.stringify({ scan: true });
+        tryVerify(function() { return app.scanRequested; }, 2000, "scan asked");
+        // Another code first: the banner, and still waiting for the one.
+        find("cameraView").codeDetected("https://www.webos-ports.org", "QR-Code");
+        verify(find("codeBanner").visible, "no banner for a web address");
+        compare(app.lastHandedOver, "");
+        verify(app.scanRequested);
+        find("codeBanner").text = "";
+        find("cameraView").codeDetected(data.link, "QR-Code");
+        compare(app.lastHandedOver, data.link);
+        verify(!find("codeBanner").visible, "a banner as well");
+        verify(!app.scanRequested, "still scanning");
+        // Seen again (the scanner reads it every frame): the banner now.
+        find("cameraView").codeDetected(data.link, "QR-Code");
+        verify(find("codeBanner").visible);
+    }
+
+    // Opened for itself: the banner, and nothing opens until asked.
+    function test_two_step_codes_wait_for_a_tap() {
+        verify(!app.scanRequested);
+        find("cameraView").codeDetected(exportLink, "QR-Code");
+        verify(find("codeBanner").visible, "no banner");
+        compare(app.lastHandedOver, "");
+        find("codeBanner").text = "";
+        find("cameraView").codeDetected(otpLink, "QR-Code");
+        verify(find("codeBanner").visible, "no banner");
+        compare(app.lastHandedOver, "");
     }
 
     function test_preferences() {

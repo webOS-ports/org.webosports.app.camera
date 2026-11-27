@@ -63,6 +63,7 @@ TestCase {
             { tag: "tel", text: "tel:+31201234567", open: true },
             { tag: "otpauth", text: "otpauth://totp/Example:alice?secret=JBSWY3DPEHPK3PXP&issuer=Example", open: true },
             { tag: "OTPAUTH", text: "OTPAUTH://TOTP/x?secret=JBSWY3DPEHPK3PXP", open: true },
+            { tag: "export", text: "otpauth-migration://offline?data=CjEKCkhlbGxvId6tvu8SGEV4YW1wbGU6YWxpY2VAZ29vZ2xlLmNvbRoHRXhhbXBsZTAC", open: true },
             { tag: "plain text", text: "Hello", open: false },
             { tag: "barcode", text: "8710398527370", open: false }
         ];
@@ -70,7 +71,8 @@ TestCase {
     function test_open_offered(data) {
         banner.show(data.text, "QR-Code");
         compare(banner.isLink, data.open);
-        compare(findButton(banner, "Open").visible, data.open);
+        var open = findButton(banner, "Open") || findButton(banner, "Import");
+        compare(open.visible, data.open);
         verify(findButton(banner, "Copy").visible);
     }
 
@@ -92,5 +94,41 @@ TestCase {
     function test_web_address_still_shown_as_is() {
         banner.show("https://webos-ports.org", "QR-Code");
         verify(shownTexts(banner, []).indexOf("https://webos-ports.org") >= 0);
+    }
+
+    // Google Authenticator's export: the published one-account sample, and
+    // code 2 of 3 with three accounts, made with Google's protobuf library
+    // (keys with "+" and "/" in their base64).
+    readonly property string oneAccount: "otpauth-migration://offline?data=CjEKCkhlbGxvId6tvu8SGEV4YW1wbGU6YWxpY2VAZ29vZ2xlLmNvbRoHRXhhbXBsZTAC"
+    readonly property string threeAccounts: "otpauth-migration://offline?data=CjgKFPv%2F%2FgD7%2F%2F4A%2B%2F%2F%2BAPv%2F%2FgD7%2F%2F4AEhFhbGljZUBleGFtcGxlLmNvbRoHQUNNRSBDbyABKAEwAgopChT7%2F%2F4B%2B%2F%2F%2BAfv%2F%2FgH7%2F%2F4B%2B%2F%2F%2BARIDYm9iGgZHaXRIdWIgASgBMAIKLAoU%2B%2F%2F%2BAvv%2F%2FgL7%2F%2F4C%2B%2F%2F%2BAvv%2F%2FgISBWNhcm9sGgdFeGFtcGxlIAEoATACEAEYAyABKMC7%2BP%2F%2F%2F%2F%2F%2F%2FwE%3D"
+
+    function test_export_counted_without_its_keys_data() {
+        return [
+            { tag: "one", link: oneAccount, shown: "1 account" },
+            { tag: "three, code 2 of 3", link: threeAccounts, shown: "3 accounts, code 2 of 3" },
+            { tag: "spaces for +", link: threeAccounts.replace(/%2B/g, " "), shown: "3 accounts, code 2 of 3" },
+            { tag: "cut short", link: threeAccounts.slice(0, 120), shown: "An export that does not read" },
+            { tag: "no data", link: "otpauth-migration://offline", shown: "An export that does not read" },
+            { tag: "not base64", link: "otpauth-migration://offline?data=%21%21", shown: "An export that does not read" }
+        ];
+    }
+    function test_export_counted_without_its_keys(data) {
+        banner.show(data.link, "QR-Code");
+        var texts = shownTexts(banner, []);
+        verify(texts.indexOf(data.shown) >= 0, texts.join("\n"));
+        verify(texts.indexOf("Two-step verification export") >= 0, texts.join("\n"));
+        // Nothing of the link itself: names nor keys.
+        var all = texts.join("\n");
+        verify(all.indexOf("data=") < 0 && all.indexOf("Hello") < 0 && all.indexOf("alice") < 0, all);
+    }
+
+    function test_export_imports() {
+        banner.show(threeAccounts, "QR-Code");
+        waitForRendering(banner);
+        verify(findButton(banner, "Open") === null, "Open, not Import");
+        mouseClick(findButton(banner, "Import"));
+        compare(openSpy.count, 1);
+        compare(openSpy.signalArguments[0][0], threeAccounts);
+        compare(banner.text, "");
     }
 }

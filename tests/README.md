@@ -10,14 +10,19 @@
   phone, SMS, map and otpauth:// links and not for plain text or a
   product barcode; an otpauth:// link (two-step verification) is shown
   as the account it is for, never with its key, and Open hands the whole
-  link on.
+  link on; an export code (otpauth-migration://, Google Authenticator's
+  published sample and one made with Google's protobuf library) as how
+  many accounts and which code of the export, never a name or key, even
+  cut short or not base64, and Import hands it on.
 
 - `screens/tst_screens.qml`: the whole app (`qml/main.qml`) on each of
   the screens in `PROFILES` - by default `mindphone` (480x800), `q25`
   (720x720), `tp` (1024x768) and `radon` (720x1600, with its notch and
   rounded corners), luneos-components' desktop profiles. It opens the
-  photo and video modes, a recording, the code banner for a link and for
-  an otpauth:// code, the preferences (top and bottom), the app menu and
+  photo and video modes, a recording, the code banner for a link, an
+  otpauth:// code and an export code; opened to scan, a two-step code
+  handed over at once and only once, other codes still in the banner;
+  opened for itself, two-step codes waiting in the banner; the preferences (top and bottom), the app menu and
   the camera switch notice, checks that the viewfinder fills the window and
   the shutter, gallery, mode, preferences and front / back buttons are
   shown, inside the window and clear of each other, and that the
